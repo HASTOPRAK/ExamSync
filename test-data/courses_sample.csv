@@ -1,0 +1,9 @@
+course_code,course_name,exam_duration_minutes
+CENG301,Operating Systems,60
+CENG302,Database Systems,75
+CENG303,Computer Networks,60
+CENG304,Software Engineering,90
+CENG305,Theory of Computation,60
+CENG306,Artificial Intelligence,75
+CENG307,Compiler Design,90
+CENG308,Machine Learning,60
