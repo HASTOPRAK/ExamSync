@@ -5,16 +5,17 @@ import DashboardPage from "@/pages/DashboardPage";
 import DataManagementPage from "@/pages/DataManagementPage";
 import ExamSetupPage from "@/pages/ExamSetupPage";
 import ImportsValidationPage from "@/pages/ImportsValidationPage";
-import SchedulePage from "@/pages/SchedulePage";
+import CheckSchedulePage from "@/pages/CheckSchedulePage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 
 export default function App() {
   return (
     <Routes>
-      {/* Public auth pages */}
-      <Route path="/login"    element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      {/* Public pages */}
+      <Route path="/login"          element={<LoginPage />} />
+      <Route path="/register"       element={<RegisterPage />} />
+      <Route path="/check-schedule" element={<CheckSchedulePage />} />
 
       {/* Teacher / Admin only */}
       <Route element={<ProtectedRoute roles={["teacher", "admin"]} />}>
@@ -23,13 +24,6 @@ export default function App() {
           <Route path="/data-management"    element={<DataManagementPage />} />
           <Route path="/exam-setup"         element={<ExamSetupPage />} />
           <Route path="/imports-validation" element={<ImportsValidationPage />} />
-        </Route>
-      </Route>
-
-      {/* Student only */}
-      <Route element={<ProtectedRoute roles={["student"]} />}>
-        <Route element={<AppLayout />}>
-          <Route path="/schedule" element={<SchedulePage />} />
         </Route>
       </Route>
 

@@ -1,5 +1,6 @@
 import express from "express";
 import authRoutes from "./auth.routes.js";
+import publicRoutes from "./public.routes.js";
 import studentRoutes from "./students.routes.js";
 import courseRoutes from "./courses.routes.js";
 import roomRoutes from "./rooms.routes.js";
@@ -17,6 +18,7 @@ const router = express.Router();
 
 // Public — no token required
 router.use("/auth", authRoutes);
+router.use("/public", publicRoutes);
 
 // All routes below require a valid JWT
 router.use(authenticate);

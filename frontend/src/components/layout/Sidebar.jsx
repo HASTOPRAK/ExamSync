@@ -1,13 +1,9 @@
 import { NavLink } from "react-router";
-import { teacherNavItems, studentNavItems } from "@/lib/nav-items";
-import { useAuth } from "@/context/AuthContext";
+import { teacherNavItems } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
 import markUrl from "@/assets/mark-40.svg";
 
 export default function Sidebar() {
-  const { user } = useAuth();
-  const items = user?.role === "student" ? studentNavItems : teacherNavItems;
-
   return (
     <aside className="hidden w-72 border-r border-slate-800 bg-slate-950/95 lg:flex lg:flex-col">
       <div className="border-b border-slate-800 px-6 py-5">
@@ -18,15 +14,13 @@ export default function Sidebar() {
               <span className="text-slate-100">Exam</span>
               <span className="text-sky-400">Sync</span>
             </h1>
-            <p className="text-xs text-slate-500">
-              {user?.role === "student" ? "Student Portal" : "Admin Panel"}
-            </p>
+            <p className="text-xs text-slate-500">Admin Panel</p>
           </div>
         </div>
       </div>
 
       <nav className="flex-1 space-y-2 p-4">
-        {items.map(({ title, path, icon: Icon }) => (
+        {teacherNavItems.map(({ title, path, icon: Icon }) => (
           <NavLink
             key={path}
             to={path}
