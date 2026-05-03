@@ -1,26 +1,21 @@
 import db from "../../config/db.js";
 
-async function loadSchedulingData(examPeriodId) {
+async function loadSchedulingData(examPeriodId, ownerId) {
   if (!examPeriodId) {
     throw new Error("examPeriodId is required");
   }
+  if (!ownerId) {
+    throw new Error("ownerId is required");
+  }
 
   const examPeriodResult = await db.query(
-    `
-    SELECT 
-      id,
-      name,
-      academic_year,
-      term,
-      exam_type,
-      start_date,
-      end_date,
-      status
-    FROM exam_periods
-    WHERE id = $1
-    LIMIT 1
-    `,
-    [examPeriodId],
+    `SELECT
+      id, name, academic_year, term, exam_type,
+      start_date, end_date, status
+     FROM exam_periods
+     WHERE id = $1 AND owner_id = $2
+     LIMIT 1`,
+    [examPeriodId, ownerId],
   );
 
   if (examPeriodResult.rows.length === 0) {
@@ -30,8 +25,7 @@ async function loadSchedulingData(examPeriodId) {
   const examPeriod = examPeriodResult.rows[0];
 
   const coursesResult = await db.query(
-    `
-    SELECT
+    `SELECT
       c.id,
       c.course_code,
       c.course_name,
@@ -39,29 +33,27 @@ async function loadSchedulingData(examPeriodId) {
       c.student_count_cache,
       c.department_id,
       c.is_active
-    FROM courses c
-    WHERE c.is_active = true
-    ORDER BY c.id
-    `,
+     FROM courses c
+     WHERE c.owner_id = $1 AND c.is_active = true
+     ORDER BY c.id`,
+    [ownerId],
   );
 
   const roomsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       r.id,
       r.room_code,
       r.building,
       r.capacity,
       r.is_active
-    FROM rooms r
-    WHERE r.is_active = true
-    ORDER BY r.capacity DESC, r.id
-    `,
+     FROM rooms r
+     WHERE r.owner_id = $1 AND r.is_active = true
+     ORDER BY r.capacity DESC, r.id`,
+    [ownerId],
   );
 
   const timeSlotsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       ts.id,
       ts.exam_period_id,
       ts.slot_date,
@@ -69,42 +61,39 @@ async function loadSchedulingData(examPeriodId) {
       ts.end_time,
       ts.duration_minutes,
       ts.is_active
-    FROM time_slots ts
-    WHERE ts.exam_period_id = $1
-      AND ts.is_active = true
-    ORDER BY ts.slot_date, ts.start_time, ts.id
-    `,
+     FROM time_slots ts
+     WHERE ts.exam_period_id = $1 AND ts.is_active = true
+     ORDER BY ts.slot_date, ts.start_time, ts.id`,
     [examPeriodId],
   );
 
   const instructorsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       ci.course_id,
       ci.instructor_id,
       ci.role
-    FROM course_instructors ci
-    ORDER BY ci.course_id, ci.id
-    `,
+     FROM course_instructors ci
+     JOIN courses c ON c.id = ci.course_id
+     WHERE c.owner_id = $1
+     ORDER BY ci.course_id, ci.id`,
+    [ownerId],
   );
 
   const instructorsCatalogResult = await db.query(
-    `
-    SELECT
+    `SELECT
       i.id,
       i.full_name,
       i.email,
       i.department_id,
       i.is_available
-    FROM instructors i
-    WHERE i.is_available = true
-    ORDER BY i.id
-    `,
+     FROM instructors i
+     WHERE i.owner_id = $1 AND i.is_available = true
+     ORDER BY i.id`,
+    [ownerId],
   );
 
   const examsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       e.id,
       e.course_id,
       e.exam_period_id,
@@ -112,23 +101,21 @@ async function loadSchedulingData(examPeriodId) {
       e.primary_instructor_id,
       e.status,
       e.notes
-    FROM exams e
-    WHERE e.exam_period_id = $1
-    ORDER BY e.id
-    `,
+     FROM exams e
+     WHERE e.exam_period_id = $1
+     ORDER BY e.id`,
     [examPeriodId],
   );
 
   const enrollmentsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       e.student_id,
       e.course_id
-    FROM enrollments e
-    INNER JOIN courses c ON c.id = e.course_id
-    WHERE c.is_active = true
-    ORDER BY e.student_id, e.course_id
-    `,
+     FROM enrollments e
+     INNER JOIN courses c ON c.id = e.course_id
+     WHERE c.owner_id = $1 AND c.is_active = true
+     ORDER BY e.student_id, e.course_id`,
+    [ownerId],
   );
 
   const courses = coursesResult.rows;
@@ -160,13 +147,11 @@ async function loadSchedulingData(examPeriodId) {
     if (!studentsByCourse[course_id]) {
       studentsByCourse[course_id] = [];
     }
-
     studentsByCourse[course_id].push(student_id);
 
     if (!coursesByStudent[student_id]) {
       coursesByStudent[student_id] = [];
     }
-
     coursesByStudent[student_id].push(course_id);
   }
 
@@ -180,7 +165,6 @@ async function loadSchedulingData(examPeriodId) {
     if (!instructorsByCourse[row.course_id]) {
       instructorsByCourse[row.course_id] = [];
     }
-
     instructorsByCourse[row.course_id].push({
       instructor_id: row.instructor_id,
       role: row.role,

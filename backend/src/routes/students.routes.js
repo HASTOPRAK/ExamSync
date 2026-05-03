@@ -4,15 +4,17 @@ import { requireRole } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// GET /api/students — teacher/admin only
+// GET /api/students — teacher/admin only, returns only their students
 router.get("/", requireRole("teacher", "admin"), async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT id, student_no, full_name, email, semester_no, class_no, education_type, status
-      FROM students
-      ORDER BY class_no, education_type, student_no
-      LIMIT 100
-    `);
+    const result = await pool.query(
+      `SELECT id, student_no, full_name, email, semester_no, class_no, education_type, status
+       FROM students
+       WHERE owner_id = $1
+       ORDER BY class_no, education_type, student_no
+       LIMIT 100`,
+      [req.user.id],
+    );
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Error fetching students:", error.message);
@@ -21,7 +23,6 @@ router.get("/", requireRole("teacher", "admin"), async (req, res) => {
 });
 
 // GET /api/students/my-schedule — student's own exam schedule
-// Returns all scheduled exams for courses the logged-in student is enrolled in
 router.get("/my-schedule", requireRole("student"), async (req, res) => {
   try {
     const studentResult = await pool.query(
