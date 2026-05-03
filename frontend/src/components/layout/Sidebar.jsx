@@ -2,6 +2,7 @@ import { NavLink } from "react-router";
 import { teacherNavItems, studentNavItems } from "@/lib/nav-items";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import markUrl from "@/assets/mark-40.svg";
 
 export default function Sidebar() {
   const { user } = useAuth();
@@ -10,15 +11,18 @@ export default function Sidebar() {
   return (
     <aside className="hidden w-72 border-r border-slate-800 bg-slate-950/95 lg:flex lg:flex-col">
       <div className="border-b border-slate-800 px-6 py-5">
-        <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">
-          Exam Scheduling System
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">ExamSync</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          {user?.role === "student"
-            ? "View your exam schedule."
-            : "Scheduling, imports, validation, and admin tools in one place."}
-        </p>
+        <div className="flex items-center gap-3">
+          <img src={markUrl} alt="ExamSync mark" className="h-10 w-10 shrink-0" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              <span className="text-slate-100">Exam</span>
+              <span className="text-sky-400">Sync</span>
+            </h1>
+            <p className="text-xs text-slate-500">
+              {user?.role === "student" ? "Student Portal" : "Admin Panel"}
+            </p>
+          </div>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-2 p-4">
