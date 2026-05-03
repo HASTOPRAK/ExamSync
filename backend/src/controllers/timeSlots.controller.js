@@ -33,7 +33,6 @@ function isValidDate(value) {
 function isWeekend(dateString) {
   const date = new Date(dateString);
   const day = date.getUTCDay();
-
   return day === 0 || day === 6;
 }
 
@@ -45,8 +44,8 @@ function addDays(dateString, days) {
 
 async function getAllTimeSlots(req, res) {
   try {
-    const result = await pool.query(`
-      SELECT
+    const result = await pool.query(
+      `SELECT
         ts.id,
         ts.exam_period_id,
         ep.name AS exam_period_name,
@@ -55,23 +54,17 @@ async function getAllTimeSlots(req, res) {
         ts.end_time,
         ts.duration_minutes,
         ts.is_active
-      FROM time_slots ts
-      JOIN exam_periods ep ON ep.id = ts.exam_period_id
-      ORDER BY ts.slot_date ASC, ts.start_time ASC
-    `);
+       FROM time_slots ts
+       JOIN exam_periods ep ON ep.id = ts.exam_period_id
+       WHERE ep.owner_id = $1
+       ORDER BY ts.slot_date ASC, ts.start_time ASC`,
+      [req.user.id],
+    );
 
-    return res.status(200).json({
-      success: true,
-      data: result.rows,
-    });
+    return res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get all time slots error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch time slots",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to fetch time slots", error: error.message });
   }
 }
 
@@ -80,8 +73,7 @@ async function getTimeSlotById(req, res) {
     const { id } = req.params;
 
     const result = await pool.query(
-      `
-      SELECT
+      `SELECT
         ts.id,
         ts.exam_period_id,
         ep.name AS exam_period_name,
@@ -90,32 +82,19 @@ async function getTimeSlotById(req, res) {
         ts.end_time,
         ts.duration_minutes,
         ts.is_active
-      FROM time_slots ts
-      JOIN exam_periods ep ON ep.id = ts.exam_period_id
-      WHERE ts.id = $1
-      `,
-      [id],
+       FROM time_slots ts
+       JOIN exam_periods ep ON ep.id = ts.exam_period_id
+       WHERE ts.id = $1 AND ep.owner_id = $2`,
+      [id, req.user.id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Time slot not found",
-      });
+      return res.status(404).json({ success: false, message: "Time slot not found" });
     }
-
-    return res.status(200).json({
-      success: true,
-      data: result.rows[0],
-    });
+    return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Get time slot by id error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch time slot",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to fetch time slot", error: error.message });
   }
 }
 
@@ -124,8 +103,7 @@ async function getTimeSlotsByExamPeriod(req, res) {
     const { examPeriodId } = req.params;
 
     const result = await pool.query(
-      `
-      SELECT
+      `SELECT
         ts.id,
         ts.exam_period_id,
         ts.slot_date,
@@ -133,44 +111,30 @@ async function getTimeSlotsByExamPeriod(req, res) {
         ts.end_time,
         ts.duration_minutes,
         ts.is_active
-      FROM time_slots ts
-      WHERE ts.exam_period_id = $1
-      ORDER BY ts.slot_date ASC, ts.start_time ASC
-      `,
-      [examPeriodId],
+       FROM time_slots ts
+       JOIN exam_periods ep ON ep.id = ts.exam_period_id
+       WHERE ts.exam_period_id = $1 AND ep.owner_id = $2
+       ORDER BY ts.slot_date ASC, ts.start_time ASC`,
+      [examPeriodId, req.user.id],
     );
 
-    return res.status(200).json({
-      success: true,
-      data: result.rows,
-    });
+    return res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get time slots by exam period error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch exam period time slots",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to fetch exam period time slots", error: error.message });
   }
 }
 
-async function validateExamPeriodAndDate(client, examPeriodId, slotDate) {
+async function validateExamPeriodAndDate(client, examPeriodId, slotDate, ownerId) {
   const examPeriodResult = await client.query(
-    `
-    SELECT id, start_date, end_date
-    FROM exam_periods
-    WHERE id = $1
-    `,
-    [examPeriodId],
+    `SELECT id, start_date, end_date
+     FROM exam_periods
+     WHERE id = $1 AND owner_id = $2`,
+    [examPeriodId, ownerId],
   );
 
   if (examPeriodResult.rows.length === 0) {
-    return {
-      ok: false,
-      status: 404,
-      message: "Exam period not found",
-    };
+    return { ok: false, status: 404, message: "Exam period not found" };
   }
 
   const examPeriod = examPeriodResult.rows[0];
@@ -185,10 +149,7 @@ async function validateExamPeriodAndDate(client, examPeriodId, slotDate) {
     };
   }
 
-  return {
-    ok: true,
-    examPeriod,
-  };
+  return { ok: true, examPeriod };
 }
 
 async function createTimeSlot(req, res) {
@@ -204,105 +165,44 @@ async function createTimeSlot(req, res) {
     } = req.body ?? {};
 
     if (!examPeriodId) {
-      return res.status(400).json({
-        success: false,
-        message: "exam_period_id is required",
-      });
+      return res.status(400).json({ success: false, message: "exam_period_id is required" });
     }
-
     if (!slotDate || !isValidDate(slotDate)) {
-      return res.status(400).json({
-        success: false,
-        message: "slot_date must be a valid date",
-      });
+      return res.status(400).json({ success: false, message: "slot_date must be a valid date" });
     }
-
     if (!startTime) {
-      return res.status(400).json({
-        success: false,
-        message: "start_time is required",
-      });
+      return res.status(400).json({ success: false, message: "start_time is required" });
     }
-
     if (!endTime) {
-      return res.status(400).json({
-        success: false,
-        message: "end_time is required",
-      });
+      return res.status(400).json({ success: false, message: "end_time is required" });
     }
 
     const durationMinutes = diffMinutes(startTime, endTime);
-
     if (durationMinutes === null || durationMinutes <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "end_time must be after start_time",
-      });
+      return res.status(400).json({ success: false, message: "end_time must be after start_time" });
     }
 
-    const examPeriodCheck = await validateExamPeriodAndDate(
-      client,
-      examPeriodId,
-      slotDate,
-    );
-
+    const examPeriodCheck = await validateExamPeriodAndDate(client, examPeriodId, slotDate, req.user.id);
     if (!examPeriodCheck.ok) {
-      return res.status(examPeriodCheck.status).json({
-        success: false,
-        message: examPeriodCheck.message,
-      });
+      return res.status(examPeriodCheck.status).json({ success: false, message: examPeriodCheck.message });
     }
 
     const result = await client.query(
-      `
-      INSERT INTO time_slots (
-        exam_period_id,
-        slot_date,
-        start_time,
-        end_time,
-        duration_minutes,
-        is_active
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING
-        id,
-        exam_period_id,
-        slot_date,
-        start_time,
-        end_time,
-        duration_minutes,
-        is_active
-      `,
-      [
-        examPeriodId,
-        slotDate,
-        startTime,
-        endTime,
-        durationMinutes,
-        Boolean(isActive),
-      ],
+      `INSERT INTO time_slots (
+         exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active`,
+      [examPeriodId, slotDate, startTime, endTime, durationMinutes, Boolean(isActive)],
     );
 
-    return res.status(201).json({
-      success: true,
-      message: "Time slot created successfully",
-      data: result.rows[0],
-    });
+    return res.status(201).json({ success: true, message: "Time slot created successfully", data: result.rows[0] });
   } catch (error) {
     console.error("Create time slot error:", error);
-
     if (error.code === "23505") {
-      return res.status(409).json({
-        success: false,
-        message: "This time slot already exists for the exam period",
-      });
+      return res.status(409).json({ success: false, message: "This time slot already exists for the exam period" });
     }
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create time slot",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to create time slot", error: error.message });
   } finally {
     client.release();
   }
@@ -322,106 +222,50 @@ async function updateTimeSlot(req, res) {
     } = req.body ?? {};
 
     if (!examPeriodId) {
-      return res.status(400).json({
-        success: false,
-        message: "exam_period_id is required",
-      });
+      return res.status(400).json({ success: false, message: "exam_period_id is required" });
     }
-
     if (!slotDate || !isValidDate(slotDate)) {
-      return res.status(400).json({
-        success: false,
-        message: "slot_date must be a valid date",
-      });
+      return res.status(400).json({ success: false, message: "slot_date must be a valid date" });
     }
-
     if (!startTime || !endTime) {
-      return res.status(400).json({
-        success: false,
-        message: "start_time and end_time are required",
-      });
+      return res.status(400).json({ success: false, message: "start_time and end_time are required" });
     }
 
     const durationMinutes = diffMinutes(startTime, endTime);
-
     if (durationMinutes === null || durationMinutes <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "end_time must be after start_time",
-      });
+      return res.status(400).json({ success: false, message: "end_time must be after start_time" });
     }
 
-    const examPeriodCheck = await validateExamPeriodAndDate(
-      client,
-      examPeriodId,
-      slotDate,
-    );
-
+    const examPeriodCheck = await validateExamPeriodAndDate(client, examPeriodId, slotDate, req.user.id);
     if (!examPeriodCheck.ok) {
-      return res.status(examPeriodCheck.status).json({
-        success: false,
-        message: examPeriodCheck.message,
-      });
+      return res.status(examPeriodCheck.status).json({ success: false, message: examPeriodCheck.message });
     }
 
     const result = await client.query(
-      `
-      UPDATE time_slots
-      SET
-        exam_period_id = $1,
-        slot_date = $2,
-        start_time = $3,
-        end_time = $4,
-        duration_minutes = $5,
-        is_active = $6
-      WHERE id = $7
-      RETURNING
-        id,
-        exam_period_id,
-        slot_date,
-        start_time,
-        end_time,
-        duration_minutes,
-        is_active
-      `,
-      [
-        examPeriodId,
-        slotDate,
-        startTime,
-        endTime,
-        durationMinutes,
-        Boolean(isActive),
-        id,
-      ],
+      `UPDATE time_slots
+       SET
+         exam_period_id = $1,
+         slot_date = $2,
+         start_time = $3,
+         end_time = $4,
+         duration_minutes = $5,
+         is_active = $6
+       WHERE id = $7
+         AND exam_period_id IN (SELECT id FROM exam_periods WHERE owner_id = $8)
+       RETURNING id, exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active`,
+      [examPeriodId, slotDate, startTime, endTime, durationMinutes, Boolean(isActive), id, req.user.id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Time slot not found",
-      });
+      return res.status(404).json({ success: false, message: "Time slot not found" });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Time slot updated successfully",
-      data: result.rows[0],
-    });
+    return res.status(200).json({ success: true, message: "Time slot updated successfully", data: result.rows[0] });
   } catch (error) {
     console.error("Update time slot error:", error);
-
     if (error.code === "23505") {
-      return res.status(409).json({
-        success: false,
-        message: "This time slot already exists for the exam period",
-      });
+      return res.status(409).json({ success: false, message: "This time slot already exists for the exam period" });
     }
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update time slot",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to update time slot", error: error.message });
   } finally {
     client.release();
   }
@@ -432,42 +276,21 @@ async function toggleTimeSlotActive(req, res) {
     const { id } = req.params;
 
     const result = await pool.query(
-      `
-      UPDATE time_slots
-      SET is_active = NOT is_active
-      WHERE id = $1
-      RETURNING
-        id,
-        exam_period_id,
-        slot_date,
-        start_time,
-        end_time,
-        duration_minutes,
-        is_active
-      `,
-      [id],
+      `UPDATE time_slots
+       SET is_active = NOT is_active
+       WHERE id = $1
+         AND exam_period_id IN (SELECT id FROM exam_periods WHERE owner_id = $2)
+       RETURNING id, exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active`,
+      [id, req.user.id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Time slot not found",
-      });
+      return res.status(404).json({ success: false, message: "Time slot not found" });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Time slot active status updated successfully",
-      data: result.rows[0],
-    });
+    return res.status(200).json({ success: true, message: "Time slot active status updated successfully", data: result.rows[0] });
   } catch (error) {
     console.error("Toggle time slot active error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to toggle time slot status",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to toggle time slot status", error: error.message });
   }
 }
 
@@ -476,34 +299,20 @@ async function deleteTimeSlot(req, res) {
     const { id } = req.params;
 
     const result = await pool.query(
-      `
-      DELETE FROM time_slots
-      WHERE id = $1
-      RETURNING id, exam_period_id, slot_date, start_time, end_time
-      `,
-      [id],
+      `DELETE FROM time_slots
+       WHERE id = $1
+         AND exam_period_id IN (SELECT id FROM exam_periods WHERE owner_id = $2)
+       RETURNING id, exam_period_id, slot_date, start_time, end_time`,
+      [id, req.user.id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Time slot not found",
-      });
+      return res.status(404).json({ success: false, message: "Time slot not found" });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Time slot deleted successfully",
-      data: result.rows[0],
-    });
+    return res.status(200).json({ success: true, message: "Time slot deleted successfully", data: result.rows[0] });
   } catch (error) {
     console.error("Delete time slot error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to delete time slot",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to delete time slot", error: error.message });
   }
 }
 
@@ -511,30 +320,28 @@ async function clearTimeSlotsByExamPeriod(req, res) {
   try {
     const { examPeriodId } = req.params;
 
+    // Verify ownership before clearing
+    const ownerCheck = await pool.query(
+      `SELECT id FROM exam_periods WHERE id = $1 AND owner_id = $2`,
+      [examPeriodId, req.user.id],
+    );
+    if (ownerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Exam period not found" });
+    }
+
     const result = await pool.query(
-      `
-      DELETE FROM time_slots
-      WHERE exam_period_id = $1
-      RETURNING id
-      `,
+      `DELETE FROM time_slots WHERE exam_period_id = $1 RETURNING id`,
       [examPeriodId],
     );
 
     return res.status(200).json({
       success: true,
       message: "Exam period time slots cleared successfully",
-      data: {
-        deletedCount: result.rowCount,
-      },
+      data: { deletedCount: result.rowCount },
     });
   } catch (error) {
     console.error("Clear time slots by exam period error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to clear exam period time slots",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to clear exam period time slots", error: error.message });
   }
 }
 
@@ -550,53 +357,29 @@ async function generateTimeSlots(req, res) {
     } = req.body ?? {};
 
     if (!examPeriodId) {
-      return res.status(400).json({
-        success: false,
-        message: "exam_period_id is required",
-      });
+      return res.status(400).json({ success: false, message: "exam_period_id is required" });
     }
-
     if (!Array.isArray(sessionTemplates) || sessionTemplates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "session_templates must be a non-empty array",
-      });
+      return res.status(400).json({ success: false, message: "session_templates must be a non-empty array" });
     }
 
     for (const [index, session] of sessionTemplates.entries()) {
       const durationMinutes = diffMinutes(session.start_time, session.end_time);
-
-      if (
-        !session.start_time ||
-        !session.end_time ||
-        durationMinutes === null ||
-        durationMinutes <= 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid session template at index ${index}`,
-        });
+      if (!session.start_time || !session.end_time || durationMinutes === null || durationMinutes <= 0) {
+        return res.status(400).json({ success: false, message: `Invalid session template at index ${index}` });
       }
     }
 
     await client.query("BEGIN");
 
     const examPeriodResult = await client.query(
-      `
-      SELECT id, start_date, end_date
-      FROM exam_periods
-      WHERE id = $1
-      `,
-      [examPeriodId],
+      `SELECT id, start_date, end_date FROM exam_periods WHERE id = $1 AND owner_id = $2`,
+      [examPeriodId, req.user.id],
     );
 
     if (examPeriodResult.rows.length === 0) {
       await client.query("ROLLBACK");
-
-      return res.status(404).json({
-        success: false,
-        message: "Exam period not found",
-      });
+      return res.status(404).json({ success: false, message: "Exam period not found" });
     }
 
     const examPeriod = examPeriodResult.rows[0];
@@ -604,13 +387,7 @@ async function generateTimeSlots(req, res) {
     const endDate = examPeriod.end_date.toISOString().slice(0, 10);
 
     if (clearExisting) {
-      await client.query(
-        `
-        DELETE FROM time_slots
-        WHERE exam_period_id = $1
-        `,
-        [examPeriodId],
-      );
+      await client.query(`DELETE FROM time_slots WHERE exam_period_id = $1`, [examPeriodId]);
     }
 
     const createdSlots = [];
@@ -623,41 +400,17 @@ async function generateTimeSlots(req, res) {
       }
 
       for (const session of sessionTemplates) {
-        const durationMinutes = diffMinutes(
-          session.start_time,
-          session.end_time,
-        );
+        const durationMinutes = diffMinutes(session.start_time, session.end_time);
 
         const result = await client.query(
-          `
-          INSERT INTO time_slots (
-            exam_period_id,
-            slot_date,
-            start_time,
-            end_time,
-            duration_minutes,
-            is_active
-          )
-          VALUES ($1, $2, $3, $4, $5, $6)
-          ON CONFLICT (exam_period_id, slot_date, start_time, end_time)
-          DO NOTHING
-          RETURNING
-            id,
-            exam_period_id,
-            slot_date,
-            start_time,
-            end_time,
-            duration_minutes,
-            is_active
-          `,
-          [
-            examPeriodId,
-            currentDate,
-            session.start_time,
-            session.end_time,
-            durationMinutes,
-            session.is_active ?? true,
-          ],
+          `INSERT INTO time_slots (
+             exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active
+           )
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (exam_period_id, slot_date, start_time, end_time)
+           DO NOTHING
+           RETURNING id, exam_period_id, slot_date, start_time, end_time, duration_minutes, is_active`,
+          [examPeriodId, currentDate, session.start_time, session.end_time, durationMinutes, session.is_active ?? true],
         );
 
         if (result.rowCount > 0) {
@@ -683,12 +436,7 @@ async function generateTimeSlots(req, res) {
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Generate time slots error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to generate time slots",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to generate time slots", error: error.message });
   } finally {
     client.release();
   }

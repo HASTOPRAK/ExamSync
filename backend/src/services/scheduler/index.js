@@ -8,8 +8,8 @@ import scoreSchedule from "./scoreSchedule.js";
 import saveSchedule from "./saveSchedule.js";
 import db from "../../config/db.js";
 
-async function generateSchedulePhaseOne(examPeriodId) {
-  const data = await loadSchedulingData(examPeriodId);
+async function generateSchedulePhaseOne(examPeriodId, ownerId) {
+  const data = await loadSchedulingData(examPeriodId, ownerId);
   const graphData = buildConflictGraph(data);
 
   return {
@@ -39,8 +39,8 @@ async function generateSchedulePhaseOne(examPeriodId) {
   };
 }
 
-async function runFullScheduleGeneration(examPeriodId) {
-  const data = await loadSchedulingData(examPeriodId);
+async function runFullScheduleGeneration(examPeriodId, ownerId) {
+  const data = await loadSchedulingData(examPeriodId, ownerId);
   const graphData = buildConflictGraph(data);
   const slotAssignmentResult = assignTimeSlots(data, graphData);
   const roomAssignmentResult = assignRooms(data, slotAssignmentResult);
@@ -84,23 +84,13 @@ async function runFullScheduleGeneration(examPeriodId) {
 
 async function getScheduleReport(examPeriodId) {
   const examPeriodResult = await db.query(
-    `
-    SELECT
-      id,
-  name,
-  academic_year,
-  term,
-  exam_type,
-  start_date,
-  end_date,
-  status,
-  schedule_quality_score,
-  schedule_metrics,
-  last_scheduled_at
-    FROM exam_periods
-    WHERE id = $1
-    LIMIT 1
-    `,
+    `SELECT
+      id, name, academic_year, term, exam_type,
+      start_date, end_date, status,
+      schedule_quality_score, schedule_metrics, last_scheduled_at
+     FROM exam_periods
+     WHERE id = $1
+     LIMIT 1`,
     [examPeriodId],
   );
 
@@ -111,8 +101,7 @@ async function getScheduleReport(examPeriodId) {
   const examPeriod = examPeriodResult.rows[0];
 
   const examsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       e.id AS exam_id,
       e.course_id,
       c.course_code,
@@ -126,19 +115,17 @@ async function getScheduleReport(examPeriodId) {
       e.status,
       pi.id AS primary_instructor_id,
       pi.full_name AS primary_instructor_name
-    FROM exams e
-    INNER JOIN courses c ON c.id = e.course_id
-    LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
-    LEFT JOIN instructors pi ON pi.id = e.primary_instructor_id
-    WHERE e.exam_period_id = $1
-    ORDER BY ts.slot_date NULLS LAST, ts.start_time NULLS LAST, c.course_code
-    `,
+     FROM exams e
+     INNER JOIN courses c ON c.id = e.course_id
+     LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
+     LEFT JOIN instructors pi ON pi.id = e.primary_instructor_id
+     WHERE e.exam_period_id = $1
+     ORDER BY ts.slot_date NULLS LAST, ts.start_time NULLS LAST, c.course_code`,
     [examPeriodId],
   );
 
   const roomAssignmentsResult = await db.query(
-    `
-    SELECT
+    `SELECT
       era.exam_id,
       r.id AS room_id,
       r.room_code,
@@ -147,49 +134,19 @@ async function getScheduleReport(examPeriodId) {
       era.assigned_capacity,
       si.id AS supervisor_instructor_id,
       si.full_name AS supervisor_instructor_name
-    FROM exam_room_assignments era
-    INNER JOIN rooms r ON r.id = era.room_id
-    LEFT JOIN instructors si ON si.id = era.supervisor_instructor_id
-    WHERE era.exam_id IN (
-      SELECT id
-      FROM exams
-      WHERE exam_period_id = $1
-    )
-    ORDER BY era.exam_id, r.room_code
-    `,
+     FROM exam_room_assignments era
+     INNER JOIN rooms r ON r.id = era.room_id
+     LEFT JOIN instructors si ON si.id = era.supervisor_instructor_id
+     WHERE era.exam_id IN (SELECT id FROM exams WHERE exam_period_id = $1)
+     ORDER BY era.exam_id, r.room_code`,
     [examPeriodId],
   );
-
-  async function runFullScheduleGenerationPreview(examPeriodId) {
-    const data = await loadSchedulingData(examPeriodId);
-    const graphData = buildConflictGraph(data);
-    const slotAssignmentResult = assignTimeSlots(data, graphData);
-    const roomAssignmentResult = assignRooms(data, slotAssignmentResult);
-    const instructorAssignmentResult = assignInstructors(
-      data,
-      slotAssignmentResult,
-      roomAssignmentResult,
-    );
-
-    const validationResult = validateSchedule(data, instructorAssignmentResult);
-    const scoringResult = scoreSchedule(
-      data,
-      instructorAssignmentResult,
-      validationResult,
-    );
-
-    return {
-      validation: validationResult,
-      scoring: scoringResult,
-    };
-  }
 
   const roomsByExamId = {};
   for (const row of roomAssignmentsResult.rows) {
     if (!roomsByExamId[row.exam_id]) {
       roomsByExamId[row.exam_id] = [];
     }
-
     roomsByExamId[row.exam_id].push({
       room_id: row.room_id,
       room_code: row.room_code,
@@ -217,10 +174,7 @@ async function getScheduleReport(examPeriodId) {
       end_time: exam.end_time,
       status: exam.status,
       primary_instructor: exam.primary_instructor_id
-        ? {
-            id: exam.primary_instructor_id,
-            full_name: exam.primary_instructor_name,
-          }
+        ? { id: exam.primary_instructor_id, full_name: exam.primary_instructor_name }
         : null,
       rooms: roomsByExamId[exam.exam_id] || [],
     };
@@ -233,7 +187,6 @@ async function getScheduleReport(examPeriodId) {
     if (!scheduleByDay[exam.slot_date]) {
       scheduleByDay[exam.slot_date] = [];
     }
-
     scheduleByDay[exam.slot_date].push(examItem);
   }
 
@@ -242,7 +195,6 @@ async function getScheduleReport(examPeriodId) {
       if (a.start_time !== b.start_time) {
         return String(a.start_time).localeCompare(String(b.start_time));
       }
-
       return String(a.course_code).localeCompare(String(b.course_code));
     });
   }
@@ -250,10 +202,7 @@ async function getScheduleReport(examPeriodId) {
   const daySummaries = Object.entries(scheduleByDay).map(([date, exams]) => ({
     date,
     totalExams: exams.length,
-    totalStudents: exams.reduce(
-      (sum, exam) => sum + Number(exam.student_count || 0),
-      0,
-    ),
+    totalStudents: exams.reduce((sum, exam) => sum + Number(exam.student_count || 0), 0),
     exams,
   }));
 

@@ -3,9 +3,11 @@ import pool from "../config/db.js";
 
 const router = express.Router();
 
-// GET basic dataset summary
+// GET /api/validation/summary — dataset summary for this owner
 router.get("/summary", async (req, res) => {
   try {
+    const ownerId = req.user.id;
+
     const [
       studentsRes,
       coursesRes,
@@ -15,13 +17,25 @@ router.get("/summary", async (req, res) => {
       timeSlotsRes,
       examsRes,
     ] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS count FROM students`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM courses`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM enrollments`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM rooms`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM exam_periods`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM time_slots`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM exams`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM students WHERE owner_id = $1`, [ownerId]),
+      pool.query(`SELECT COUNT(*)::int AS count FROM courses WHERE owner_id = $1`, [ownerId]),
+      pool.query(
+        `SELECT COUNT(*)::int AS count FROM enrollments e
+         JOIN courses c ON c.id = e.course_id WHERE c.owner_id = $1`,
+        [ownerId],
+      ),
+      pool.query(`SELECT COUNT(*)::int AS count FROM rooms WHERE owner_id = $1`, [ownerId]),
+      pool.query(`SELECT COUNT(*)::int AS count FROM exam_periods WHERE owner_id = $1`, [ownerId]),
+      pool.query(
+        `SELECT COUNT(*)::int AS count FROM time_slots ts
+         JOIN exam_periods ep ON ep.id = ts.exam_period_id WHERE ep.owner_id = $1`,
+        [ownerId],
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS count FROM exams e
+         JOIN exam_periods ep ON ep.id = e.exam_period_id WHERE ep.owner_id = $1`,
+        [ownerId],
+      ),
     ]);
 
     res.json({
@@ -39,11 +53,11 @@ router.get("/summary", async (req, res) => {
   }
 });
 
-// GET course conflict pairs preview
+// GET /api/validation/conflicts-preview — course conflict pairs for this owner
 router.get("/conflicts-preview", async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT
+    const result = await pool.query(
+      `SELECT
         e1.course_id AS course_1_id,
         c1.course_code AS course_1_code,
         c1.course_name AS course_1_name,
@@ -51,19 +65,21 @@ router.get("/conflicts-preview", async (req, res) => {
         c2.course_code AS course_2_code,
         c2.course_name AS course_2_name,
         COUNT(*)::int AS shared_students
-      FROM enrollments e1
-      JOIN enrollments e2
-        ON e1.student_id = e2.student_id
-       AND e1.course_id < e2.course_id
-      JOIN courses c1 ON e1.course_id = c1.id
-      JOIN courses c2 ON e2.course_id = c2.id
-      GROUP BY
-        e1.course_id, c1.course_code, c1.course_name,
-        e2.course_id, c2.course_code, c2.course_name
-      HAVING COUNT(*) > 0
-      ORDER BY shared_students DESC, c1.course_code, c2.course_code
-      LIMIT 100
-    `);
+       FROM enrollments e1
+       JOIN enrollments e2
+         ON e1.student_id = e2.student_id
+        AND e1.course_id < e2.course_id
+       JOIN courses c1 ON e1.course_id = c1.id
+       JOIN courses c2 ON e2.course_id = c2.id
+       WHERE c1.owner_id = $1 AND c2.owner_id = $1
+       GROUP BY
+         e1.course_id, c1.course_code, c1.course_name,
+         e2.course_id, c2.course_code, c2.course_name
+       HAVING COUNT(*) > 0
+       ORDER BY shared_students DESC, c1.course_code, c2.course_code
+       LIMIT 100`,
+      [req.user.id],
+    );
 
     res.json({
       totalConflictPairs: result.rowCount,

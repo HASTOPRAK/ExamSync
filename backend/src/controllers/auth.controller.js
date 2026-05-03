@@ -33,7 +33,6 @@ async function registerTeacher(req, res) {
 
     const normalizedEmail = String(email).trim().toLowerCase();
 
-    // Check email not already taken
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, message: "Email already registered" });
@@ -45,7 +44,6 @@ async function registerTeacher(req, res) {
     try {
       await client.query("BEGIN");
 
-      // Create user
       const userResult = await client.query(
         `INSERT INTO users (email, password_hash, role)
          VALUES ($1, $2, 'teacher')
@@ -54,11 +52,10 @@ async function registerTeacher(req, res) {
       );
       const user = userResult.rows[0];
 
-      // Create or link instructor record
+      // Create instructor record owned by this teacher (owner_id = user.id)
       const instrResult = await client.query(
-        `INSERT INTO instructors (full_name, email, department_id, user_id)
-         VALUES ($1, $2, 1, $3)
-         ON CONFLICT (email) DO UPDATE SET user_id = EXCLUDED.user_id
+        `INSERT INTO instructors (full_name, email, department_id, user_id, owner_id)
+         VALUES ($1, $2, 1, $3, $3)
          RETURNING id, full_name, email`,
         [String(full_name).trim(), normalizedEmail, user.id],
       );
@@ -108,7 +105,6 @@ async function registerStudent(req, res) {
     const normalizedNo = String(student_no).trim();
     const email = `${normalizedNo}@${STUDENT_EMAIL_DOMAIN}`;
 
-    // Student must already exist in the DB (imported by a teacher/admin)
     const studentResult = await pool.query(
       "SELECT id, full_name, user_id FROM students WHERE student_no = $1",
       [normalizedNo],
@@ -126,7 +122,6 @@ async function registerStudent(req, res) {
       return res.status(409).json({ success: false, message: "This student account is already registered" });
     }
 
-    // Check email uniqueness on users (safety guard)
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, message: "Account already exists for this student number" });
@@ -146,7 +141,6 @@ async function registerStudent(req, res) {
       );
       const user = userResult.rows[0];
 
-      // Link user to student record and set the generated email
       await client.query(
         "UPDATE students SET user_id = $1, email = $2 WHERE id = $3",
         [user.id, email, student.id],
@@ -208,12 +202,10 @@ async function login(req, res) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    // Update last login timestamp
     await pool.query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [user.id]);
 
     const token = signToken(user);
 
-    // Fetch profile depending on role
     let profile = null;
     if (user.role === "student") {
       const s = await pool.query(

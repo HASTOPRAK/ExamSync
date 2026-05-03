@@ -20,10 +20,7 @@ function buildStudentTemplateCsv() {
 
 function validateHeaders(rows) {
   if (!rows.length) {
-    return {
-      ok: false,
-      message: "CSV file is empty",
-    };
+    return { ok: false, message: "CSV file is empty" };
   }
 
   const headers = Object.keys(rows[0]);
@@ -32,25 +29,18 @@ function validateHeaders(rows) {
   );
 
   if (missingHeaders.length > 0) {
-    return {
-      ok: false,
-      message: `Missing required columns: ${missingHeaders.join(", ")}`,
-    };
+    return { ok: false, message: `Missing required columns: ${missingHeaders.join(", ")}` };
   }
 
   return { ok: true };
 }
 
-async function previewEnrollmentImport(fileBuffer) {
+async function previewEnrollmentImport(fileBuffer, ownerId) {
   const rows = parseCsvBuffer(fileBuffer);
   const headerCheck = validateHeaders(rows);
 
   if (!headerCheck.ok) {
-    return {
-      success: false,
-      message: headerCheck.message,
-      data: null,
-    };
+    return { success: false, message: headerCheck.message, data: null };
   }
 
   const errors = [];
@@ -65,39 +55,22 @@ async function previewEnrollmentImport(fileBuffer) {
     const courseCode = row.course_code;
 
     if (!studentNo) {
-      errors.push({
-        row: rowNumber,
-        field: "student_no",
-        message: "student_no is required",
-      });
+      errors.push({ row: rowNumber, field: "student_no", message: "student_no is required" });
       continue;
     }
-
     if (!courseCode) {
-      errors.push({
-        row: rowNumber,
-        field: "course_code",
-        message: "course_code is required",
-      });
+      errors.push({ row: rowNumber, field: "course_code", message: "course_code is required" });
       continue;
     }
 
     const uniqueKey = `${studentNo}__${courseCode}`;
     if (duplicateKeysInFile.has(uniqueKey)) {
-      errors.push({
-        row: rowNumber,
-        field: "student_no, course_code",
-        message: "Duplicate enrollment found inside uploaded file",
-      });
+      errors.push({ row: rowNumber, field: "student_no, course_code", message: "Duplicate enrollment found inside uploaded file" });
       continue;
     }
 
     duplicateKeysInFile.add(uniqueKey);
-    validRows.push({
-      row: rowNumber,
-      studentNo,
-      courseCode,
-    });
+    validRows.push({ row: rowNumber, studentNo, courseCode });
   }
 
   const studentNos = [...new Set(validRows.map((row) => row.studentNo))];
@@ -105,20 +78,12 @@ async function previewEnrollmentImport(fileBuffer) {
 
   const [studentsResult, coursesResult] = await Promise.all([
     pool.query(
-      `
-      SELECT id, student_no
-      FROM students
-      WHERE student_no = ANY($1)
-      `,
-      [studentNos],
+      `SELECT id, student_no FROM students WHERE student_no = ANY($1) AND owner_id = $2`,
+      [studentNos, ownerId],
     ),
     pool.query(
-      `
-      SELECT id, course_code
-      FROM courses
-      WHERE course_code = ANY($1)
-      `,
-      [courseCodes],
+      `SELECT id, course_code FROM courses WHERE course_code = ANY($1) AND owner_id = $2`,
+      [courseCodes, ownerId],
     ),
   ]);
 
@@ -137,65 +102,37 @@ async function previewEnrollmentImport(fileBuffer) {
     const courseId = courseMap.get(row.courseCode);
 
     if (!studentId) {
-      errors.push({
-        row: row.row,
-        field: "student_no",
-        message: `Student not found: ${row.studentNo}`,
-      });
+      errors.push({ row: row.row, field: "student_no", message: `Student not found: ${row.studentNo}` });
       continue;
     }
-
     if (!courseId) {
-      errors.push({
-        row: row.row,
-        field: "course_code",
-        message: `Course not found: ${row.courseCode}`,
-      });
+      errors.push({ row: row.row, field: "course_code", message: `Course not found: ${row.courseCode}` });
       continue;
     }
 
-    resolvedRows.push({
-      ...row,
-      studentId,
-      courseId,
-    });
-
-    insertCandidates.push({
-      row: row.row,
-      studentNo: row.studentNo,
-      courseCode: row.courseCode,
-      studentId,
-      courseId,
-    });
+    resolvedRows.push({ ...row, studentId, courseId });
+    insertCandidates.push({ row: row.row, studentNo: row.studentNo, courseCode: row.courseCode, studentId, courseId });
   }
 
   let existingEnrollmentKeys = new Set();
 
   if (insertCandidates.length > 0) {
-    const values = insertCandidates.flatMap((item) => [
-      item.studentId,
-      item.courseId,
-    ]);
-
+    const values = insertCandidates.flatMap((item) => [item.studentId, item.courseId]);
     const placeholders = insertCandidates
       .map((_, index) => `($${index * 2 + 1}::int, $${index * 2 + 2}::int)`)
       .join(", ");
 
     const existingResult = await pool.query(
-      `
-      SELECT e.student_id, e.course_id
-      FROM enrollments e
-      JOIN (VALUES ${placeholders}) AS incoming(student_id, course_id)
-        ON incoming.student_id = e.student_id
-       AND incoming.course_id = e.course_id
-      `,
+      `SELECT e.student_id, e.course_id
+       FROM enrollments e
+       JOIN (VALUES ${placeholders}) AS incoming(student_id, course_id)
+         ON incoming.student_id = e.student_id
+        AND incoming.course_id = e.course_id`,
       values,
     );
 
     existingEnrollmentKeys = new Set(
-      existingResult.rows.map(
-        (item) => `${item.student_id}__${item.course_id}`,
-      ),
+      existingResult.rows.map((item) => `${item.student_id}__${item.course_id}`),
     );
   }
 
@@ -204,7 +141,6 @@ async function previewEnrollmentImport(fileBuffer) {
 
   for (const item of insertCandidates) {
     const dbKey = `${item.studentId}__${item.courseId}`;
-
     if (existingEnrollmentKeys.has(dbKey)) {
       duplicatesInDatabase.push({
         row: item.row,
@@ -213,7 +149,6 @@ async function previewEnrollmentImport(fileBuffer) {
       });
       continue;
     }
-
     readyToImport.push(item);
   }
 
@@ -253,14 +188,13 @@ async function refreshStudentCountCache(client) {
     UPDATE courses
     SET student_count_cache = 0
     WHERE id NOT IN (
-      SELECT DISTINCT course_id
-      FROM enrollments
+      SELECT DISTINCT course_id FROM enrollments
     )
   `);
 }
 
-async function commitEnrollmentImport(fileBuffer) {
-  const previewResult = await previewEnrollmentImport(fileBuffer);
+async function commitEnrollmentImport(fileBuffer, ownerId) {
+  const previewResult = await previewEnrollmentImport(fileBuffer, ownerId);
 
   if (!previewResult.success) {
     return previewResult;
@@ -268,29 +202,17 @@ async function commitEnrollmentImport(fileBuffer) {
 
   const rows = parseCsvBuffer(fileBuffer);
 
-  const studentNos = [
-    ...new Set(rows.map((row) => row.student_no).filter(Boolean)),
-  ];
-  const courseCodes = [
-    ...new Set(rows.map((row) => row.course_code).filter(Boolean)),
-  ];
+  const studentNos = [...new Set(rows.map((row) => row.student_no).filter(Boolean))];
+  const courseCodes = [...new Set(rows.map((row) => row.course_code).filter(Boolean))];
 
   const [studentsResult, coursesResult] = await Promise.all([
     pool.query(
-      `
-      SELECT id, student_no
-      FROM students
-      WHERE student_no = ANY($1)
-      `,
-      [studentNos],
+      `SELECT id, student_no FROM students WHERE student_no = ANY($1) AND owner_id = $2`,
+      [studentNos, ownerId],
     ),
     pool.query(
-      `
-      SELECT id, course_code
-      FROM courses
-      WHERE course_code = ANY($1)
-      `,
-      [courseCodes],
+      `SELECT id, course_code FROM courses WHERE course_code = ANY($1) AND owner_id = $2`,
+      [courseCodes, ownerId],
     ),
   ]);
 
@@ -331,19 +253,15 @@ async function commitEnrollmentImport(fileBuffer) {
 
     for (const pair of pairs) {
       const insertResult = await client.query(
-        `
-        INSERT INTO enrollments (student_id, course_id, enrollment_source)
-        VALUES ($1, $2, 'csv_import')
-        ON CONFLICT (student_id, course_id) DO NOTHING
-        `,
+        `INSERT INTO enrollments (student_id, course_id, enrollment_source)
+         VALUES ($1, $2, 'csv_import')
+         ON CONFLICT (student_id, course_id) DO NOTHING`,
         [pair.studentId, pair.courseId],
       );
-
       insertedCount += insertResult.rowCount;
     }
 
     await refreshStudentCountCache(client);
-
     await client.query("COMMIT");
 
     return {
@@ -363,24 +281,18 @@ async function commitEnrollmentImport(fileBuffer) {
   }
 }
 
-async function previewStudentImport(fileBuffer) {
+async function previewStudentImport(fileBuffer, ownerId) {
   const rows = parseCsvBuffer(fileBuffer);
 
   if (!rows.length) {
-    return {
-      success: false,
-      message: "CSV file is empty",
-    };
+    return { success: false, message: "CSV file is empty" };
   }
 
   const headers = Object.keys(rows[0]);
   const missing = STUDENT_REQUIRED_COLUMNS.filter((h) => !headers.includes(h));
 
   if (missing.length) {
-    return {
-      success: false,
-      message: `Missing columns: ${missing.join(", ")}`,
-    };
+    return { success: false, message: `Missing columns: ${missing.join(", ")}` };
   }
 
   const errors = [];
@@ -389,44 +301,26 @@ async function previewStudentImport(fileBuffer) {
   for (let i = 0; i < rows.length; i++) {
     const rowNumber = i + 2;
     const row = rows[i];
-
     const studentNo = row.student_no;
     const fullName = row.full_name;
 
     if (!studentNo) {
-      errors.push({
-        row: rowNumber,
-        field: "student_no",
-        message: "student_no is required",
-      });
+      errors.push({ row: rowNumber, field: "student_no", message: "student_no is required" });
       continue;
     }
-
     if (!fullName) {
-      errors.push({
-        row: rowNumber,
-        field: "full_name",
-        message: "full_name is required",
-      });
+      errors.push({ row: rowNumber, field: "full_name", message: "full_name is required" });
       continue;
     }
-
-    validRows.push({
-      row: rowNumber,
-      studentNo,
-      fullName,
-    });
+    validRows.push({ row: rowNumber, studentNo, fullName });
   }
 
   const studentNos = validRows.map((r) => r.studentNo);
 
+  // Check for duplicates within this owner's tenant
   const existing = await pool.query(
-    `
-    SELECT student_no
-    FROM students
-    WHERE student_no = ANY($1)
-    `,
-    [studentNos],
+    `SELECT student_no FROM students WHERE student_no = ANY($1) AND owner_id = $2`,
+    [studentNos, ownerId],
   );
 
   const existingSet = new Set(existing.rows.map((r) => r.student_no));
@@ -436,14 +330,9 @@ async function previewStudentImport(fileBuffer) {
 
   for (const row of validRows) {
     if (existingSet.has(row.studentNo)) {
-      duplicates.push({
-        row: row.row,
-        field: "student_no",
-        message: "Student already exists",
-      });
+      duplicates.push({ row: row.row, field: "student_no", message: "Student already exists" });
       continue;
     }
-
     ready.push(row);
   }
 
@@ -463,9 +352,8 @@ async function previewStudentImport(fileBuffer) {
   };
 }
 
-async function commitStudentImport(fileBuffer) {
+async function commitStudentImport(fileBuffer, ownerId) {
   const rows = parseCsvBuffer(fileBuffer);
-
   const client = await pool.connect();
 
   try {
@@ -480,12 +368,10 @@ async function commitStudentImport(fileBuffer) {
       if (!studentNo || !fullName) continue;
 
       const result = await client.query(
-        `
-        INSERT INTO students (student_no, full_name, department_id)
-        VALUES ($1,$2,$3)
-        ON CONFLICT (student_no) DO NOTHING
-        `,
-        [studentNo, fullName, 1],
+        `INSERT INTO students (student_no, full_name, department_id, owner_id)
+         VALUES ($1, $2, 1, $3)
+         ON CONFLICT (student_no) DO NOTHING`,
+        [studentNo, fullName, ownerId],
       );
 
       inserted += result.rowCount;
@@ -496,10 +382,7 @@ async function commitStudentImport(fileBuffer) {
     return {
       success: true,
       message: "Students imported",
-      data: {
-        inserted,
-        skipped: rows.length - inserted,
-      },
+      data: { inserted, skipped: rows.length - inserted },
     };
   } catch (err) {
     await client.query("ROLLBACK");

@@ -18,10 +18,7 @@ function buildCourseTemplateCsv() {
 
 function validateHeaders(rows) {
   if (!rows.length) {
-    return {
-      ok: false,
-      message: "CSV file is empty",
-    };
+    return { ok: false, message: "CSV file is empty" };
   }
 
   const headers = Object.keys(rows[0]);
@@ -30,10 +27,7 @@ function validateHeaders(rows) {
   );
 
   if (missingHeaders.length > 0) {
-    return {
-      ok: false,
-      message: `Missing required columns: ${missingHeaders.join(", ")}`,
-    };
+    return { ok: false, message: `Missing required columns: ${missingHeaders.join(", ")}` };
   }
 
   return { ok: true };
@@ -41,23 +35,16 @@ function validateHeaders(rows) {
 
 function parseDuration(value) {
   const parsed = Number.parseInt(value, 10);
-
-  if (Number.isNaN(parsed)) {
-    return null;
-  }
-
+  if (Number.isNaN(parsed)) return null;
   return parsed;
 }
 
-async function previewCourseImport(fileBuffer) {
+async function previewCourseImport(fileBuffer, ownerId) {
   const rows = parseCsvBuffer(fileBuffer);
   const headerCheck = validateHeaders(rows);
 
   if (!headerCheck.ok) {
-    return {
-      success: false,
-      message: headerCheck.message,
-    };
+    return { success: false, message: headerCheck.message };
   }
 
   const errors = [];
@@ -73,74 +60,38 @@ async function previewCourseImport(fileBuffer) {
     const duration = parseDuration(row.exam_duration_minutes);
 
     if (!courseCode) {
-      errors.push({
-        row: rowNumber,
-        field: "course_code",
-        message: "course_code is required",
-      });
+      errors.push({ row: rowNumber, field: "course_code", message: "course_code is required" });
       continue;
     }
-
     if (!courseName) {
-      errors.push({
-        row: rowNumber,
-        field: "course_name",
-        message: "course_name is required",
-      });
+      errors.push({ row: rowNumber, field: "course_name", message: "course_name is required" });
       continue;
     }
-
     if (duration === null) {
-      errors.push({
-        row: rowNumber,
-        field: "exam_duration_minutes",
-        message: "exam_duration_minutes must be a number",
-      });
+      errors.push({ row: rowNumber, field: "exam_duration_minutes", message: "exam_duration_minutes must be a number" });
       continue;
     }
-
     if (duration < 15 || duration > 90) {
-      errors.push({
-        row: rowNumber,
-        field: "exam_duration_minutes",
-        message: "exam_duration_minutes must be between 15 and 90",
-      });
+      errors.push({ row: rowNumber, field: "exam_duration_minutes", message: "exam_duration_minutes must be between 15 and 90" });
       continue;
     }
-
     if (duplicateCodesInFile.has(courseCode)) {
-      errors.push({
-        row: rowNumber,
-        field: "course_code",
-        message: "Duplicate course_code found inside uploaded file",
-      });
+      errors.push({ row: rowNumber, field: "course_code", message: "Duplicate course_code found inside uploaded file" });
       continue;
     }
 
     duplicateCodesInFile.add(courseCode);
-
-    validRows.push({
-      row: rowNumber,
-      courseCode,
-      courseName,
-      examDurationMinutes: duration,
-    });
+    validRows.push({ row: rowNumber, courseCode, courseName, examDurationMinutes: duration });
   }
 
   const courseCodes = validRows.map((row) => row.courseCode);
 
   const existingResult = await pool.query(
-    `
-    SELECT course_code
-    FROM courses
-    WHERE course_code = ANY($1)
-    `,
-    [courseCodes],
+    `SELECT course_code FROM courses WHERE course_code = ANY($1) AND owner_id = $2`,
+    [courseCodes, ownerId],
   );
 
-  const existingSet = new Set(
-    existingResult.rows.map((row) => row.course_code),
-  );
+  const existingSet = new Set(existingResult.rows.map((row) => row.course_code));
 
   const readyToImport = [];
   const duplicatesInDatabase = [];
@@ -154,7 +105,6 @@ async function previewCourseImport(fileBuffer) {
       });
       continue;
     }
-
     readyToImport.push(row);
   }
 
@@ -179,8 +129,8 @@ async function previewCourseImport(fileBuffer) {
   };
 }
 
-async function commitCourseImport(fileBuffer) {
-  const previewResult = await previewCourseImport(fileBuffer);
+async function commitCourseImport(fileBuffer, ownerId) {
+  const previewResult = await previewCourseImport(fileBuffer, ownerId);
 
   if (!previewResult.success) {
     return previewResult;
@@ -203,17 +153,12 @@ async function commitCourseImport(fileBuffer) {
       if (duration < 15 || duration > 90) continue;
 
       const result = await client.query(
-        `
-        INSERT INTO courses (
-          course_code,
-          course_name,
-          department_id,
-          exam_duration_minutes
-        )
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (course_code) DO NOTHING
-        `,
-        [courseCode, courseName, 1, duration],
+        `INSERT INTO courses (
+           course_code, course_name, department_id, exam_duration_minutes, owner_id
+         )
+         VALUES ($1, $2, 1, $3, $4)
+         ON CONFLICT (owner_id, course_code) DO NOTHING`,
+        [courseCode, courseName, duration, ownerId],
       );
 
       inserted += result.rowCount;
@@ -224,10 +169,7 @@ async function commitCourseImport(fileBuffer) {
     return {
       success: true,
       message: "Courses imported successfully",
-      data: {
-        inserted,
-        skipped: rows.length - inserted,
-      },
+      data: { inserted, skipped: rows.length - inserted },
     };
   } catch (error) {
     await client.query("ROLLBACK");
