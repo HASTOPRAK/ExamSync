@@ -1,6 +1,6 @@
 <div align="center">
 
-# ExamSync
+<img src="https://raw.githubusercontent.com/HASTOPRAK/ExamSync/main/frontend/src/assets/logo-dark.svg" alt="ExamSync" width="320" />
 
 **Conflict-aware university exam scheduling — built for institutions that care about getting it right.**
 
@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/postgresql-17-blue)](https://www.postgresql.org)
 [![React](https://img.shields.io/badge/react-19-61dafb)](https://react.dev)
 
-[Features](#features) · [Tech Stack](#tech-stack) · [Getting Started](#getting-started) · [Architecture](#architecture) · [API](#api-overview) · [Testing](#testing)
+**[Live Demo](https://examsync.vercel.app)** · [Features](#features) · [Tech Stack](#tech-stack) · [Getting Started](#getting-started) · [Architecture](#architecture) · [API](#api-overview) · [Testing](#testing)
 
 </div>
 

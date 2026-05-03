@@ -7,6 +7,7 @@ import { getApiErrorMessage } from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import logoUrl from "@/assets/logo-dark.svg";
 
 const STUDENT_EMAIL_SUFFIX = "@ogr.edu.tr";
 
@@ -47,11 +48,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="mb-8 text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">
-            Exam Scheduling System
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-white">ExamSync</h1>
+        <div className="mb-8 flex justify-center">
+          <img src={logoUrl} alt="ExamSync" className="h-16 w-auto rounded-xl" />
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
