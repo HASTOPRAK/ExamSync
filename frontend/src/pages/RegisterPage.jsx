@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { registerTeacher, registerStudent } from "@/api/authApi";
+import { registerTeacher } from "@/api/authApi";
 import { getApiErrorMessage } from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +13,11 @@ export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [tab, setTab]               = useState("teacher");
-  const [loading, setLoading]       = useState(false);
-
-  // Teacher fields
-  const [fullName, setFullName]     = useState("");
-  const [email, setEmail]           = useState("");
-
-  // Shared
-  const [password, setPassword]     = useState("");
-  const [confirm, setConfirm]       = useState("");
-
-  // Student fields
-  const [studentNo, setStudentNo]   = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
+  const [loading, setLoading]   = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -41,18 +33,10 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      let data;
-      if (tab === "teacher") {
-        data = await registerTeacher({ full_name: fullName, email, password });
-        login({ token: data.token, user: data.user, profile: data.instructor ?? null });
-        toast.success("Account created! Welcome.");
-        navigate("/", { replace: true });
-      } else {
-        data = await registerStudent({ student_no: studentNo, password });
-        login({ token: data.token, user: data.user, profile: data.student ?? null });
-        toast.success("Account created! Welcome.");
-        navigate("/schedule", { replace: true });
-      }
+      const data = await registerTeacher({ full_name: fullName, email, password });
+      login({ token: data.token, user: data.user, profile: data.instructor ?? null });
+      toast.success("Account created! Welcome.");
+      navigate("/", { replace: true });
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Registration failed"));
     } finally {
@@ -71,78 +55,33 @@ export default function RegisterPage() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
           <h2 className="mb-6 text-xl font-semibold text-white">Create account</h2>
 
-          {/* Role tabs */}
-          <div className="mb-6 flex rounded-xl border border-slate-800 bg-slate-950 p-1">
-            <button
-              type="button"
-              onClick={() => setTab("teacher")}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                tab === "teacher"
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Teacher / Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("student")}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                tab === "student"
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Student
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
-            {tab === "teacher" ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="full-name" className="text-slate-300">Full name</Label>
-                  <Input
-                    id="full-name"
-                    type="text"
-                    placeholder="Dr. Jane Smith"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-300">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@university.edu"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="student-no" className="text-slate-300">Student Number</Label>
-                <Input
-                  id="student-no"
-                  type="text"
-                  placeholder="e.g. 202631009"
-                  value={studentNo}
-                  onChange={(e) => setStudentNo(e.target.value)}
-                  required
-                  className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
-                />
-                <p className="text-xs text-slate-500">
-                  Your student number must already be registered in the system by your institution.
-                </p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="full-name" className="text-slate-300">Full name</Label>
+              <Input
+                id="full-name"
+                type="text"
+                placeholder="Dr. Jane Smith"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@university.edu"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-300">Password</Label>
