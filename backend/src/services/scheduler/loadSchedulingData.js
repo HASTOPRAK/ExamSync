@@ -85,9 +85,10 @@ async function loadSchedulingData(examPeriodId, ownerId) {
       i.full_name,
       i.email,
       i.department_id,
-      i.is_available
+      i.is_available,
+      i.instructor_type
      FROM instructors i
-     WHERE i.owner_id = $1 AND i.is_available = true
+     WHERE i.owner_id = $1 AND i.is_available = true AND i.instructor_type = 'assistant'
      ORDER BY i.id`,
     [ownerId],
   );

@@ -131,3 +131,38 @@ export async function clearGeneratedCourses(payload) {
   });
   return data;
 }
+
+export async function generateCEMockDataset() {
+  const { data } = await api.post("/imports/mock/ce-dataset");
+  return data;
+}
+
+export async function clearCEMockDataset() {
+  const { data } = await api.delete("/imports/mock/ce-dataset");
+  return data;
+}
+
+export async function loadMockRooms() {
+  const { data } = await api.post("/imports/mock/rooms");
+  return data;
+}
+
+export async function loadMockInstructors() {
+  const { data } = await api.post("/imports/mock/instructors");
+  return data;
+}
+
+export async function loadMockCourses() {
+  const { data } = await api.post("/imports/mock/courses");
+  return data;
+}
+
+export async function loadMockStudents() {
+  const { data } = await api.post("/imports/mock/students");
+  return data;
+}
+
+export async function loadMockEnrollments() {
+  const { data } = await api.post("/imports/mock/enrollments");
+  return data;
+}

@@ -10,7 +10,9 @@ async function getAllExamPeriods(req, res) {
     const result = await pool.query(
       `SELECT
         id, name, academic_year, term, exam_type,
-        start_date, end_date, status, created_at, updated_at
+        start_date, end_date, status,
+        schedule_quality_score, last_scheduled_at,
+        created_at, updated_at
        FROM exam_periods
        WHERE owner_id = $1
        ORDER BY created_at DESC, id DESC`,
