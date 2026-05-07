@@ -31,6 +31,7 @@ import {
   updateInstructor,
   updateRoom,
 } from "@/api/dataApi";
+import { clearCEMockDataset } from "@/api/importsApi";
 
 const initialRoomForm = {
   room_code: "",
@@ -43,6 +44,7 @@ const initialInstructorForm = {
   full_name: "",
   email: "",
   department_id: 1,
+  instructor_type: "faculty",
 };
 
 const TABLE_CLS = "min-w-full text-sm";
@@ -61,6 +63,7 @@ export default function DataManagementPage() {
 
   const [editingRoomId, setEditingRoomId] = useState(null);
   const [editingInstructorId, setEditingInstructorId] = useState(null);
+  const [isClearingAll, setIsClearingAll] = useState(false);
 
   const [roomSheetOpen, setRoomSheetOpen] = useState(false);
   const [instructorSheetOpen, setInstructorSheetOpen] = useState(false);
@@ -84,7 +87,7 @@ export default function DataManagementPage() {
       ]);
 
       const roomList = roomsRes?.data || [];
-      const courseList = Array.isArray(coursesRes) ? coursesRes : [];
+      const courseList = coursesRes?.data || [];
       const instructorList = instructorsRes?.data || [];
 
       setRooms(roomList);
@@ -178,6 +181,7 @@ export default function DataManagementPage() {
         full_name: instructor.full_name || "",
         email: instructor.email || "",
         department_id: instructor.department_id || 1,
+        instructor_type: instructor.instructor_type || "faculty",
       });
     } else {
       setEditingInstructorId(null);
@@ -232,6 +236,7 @@ export default function DataManagementPage() {
         full_name: instructorForm.full_name,
         email: instructorForm.email || null,
         department_id: Number(instructorForm.department_id) || 1,
+        instructor_type: instructorForm.instructor_type,
       };
 
       const response = editingInstructorId
@@ -311,6 +316,26 @@ export default function DataManagementPage() {
       toast.error(getApiErrorMessage(error, "Failed to assign instructor"));
     } finally {
       setIsAssigning(false);
+    }
+  }
+
+  async function handleClearAll() {
+    if (
+      !window.confirm(
+        "This will permanently delete all rooms, instructors, courses, students, and enrollments for your account. Exam periods and schedules are not affected. This cannot be undone. Continue?",
+      )
+    )
+      return;
+
+    try {
+      setIsClearingAll(true);
+      const response = await clearCEMockDataset();
+      toast.success(response?.message || "All data cleared");
+      await loadBaseData();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to clear data"));
+    } finally {
+      setIsClearingAll(false);
     }
   }
 
@@ -461,6 +486,20 @@ export default function DataManagementPage() {
                 value={instructorForm.department_id}
                 onChange={handleInstructorFormChange}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="instructor_type">Type</Label>
+              <select
+                id="instructor_type"
+                name="instructor_type"
+                value={instructorForm.instructor_type}
+                onChange={handleInstructorFormChange}
+                className="h-10 rounded-md border border-slate-800 bg-slate-950 px-3 text-sm text-slate-100"
+              >
+                <option value="faculty">Faculty (course instructor)</option>
+                <option value="assistant">Assistant (exam supervisor)</option>
+              </select>
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -641,7 +680,7 @@ export default function DataManagementPage() {
                   <tr>
                     <th className="px-3 py-3 font-medium">Name</th>
                     <th className="px-3 py-3 font-medium">Email</th>
-                    <th className="px-3 py-3 font-medium">Dept. ID</th>
+                    <th className="px-3 py-3 font-medium">Type</th>
                     <th className="px-3 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -649,7 +688,7 @@ export default function DataManagementPage() {
                 <tbody>
                   {!isLoading && instructors.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-3 py-6 text-slate-500">
+                      <td colSpan={5} className="px-3 py-6 text-slate-500">
                         No instructors found. Hit + to add one.
                       </td>
                     </tr>
@@ -665,7 +704,9 @@ export default function DataManagementPage() {
                         <td className="px-3 py-3">
                           {instructor.email || "—"}
                         </td>
-                        <td className="px-3 py-3">{instructor.department_id}</td>
+                        <td className="px-3 py-3 capitalize">
+                          {instructor.instructor_type || "faculty"}
+                        </td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap gap-2">
                             <Button
@@ -807,6 +848,23 @@ export default function DataManagementPage() {
           </PageSection>
         </TabsContent>
       </Tabs>
+
+      {/* Danger zone */}
+      <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-5">
+        <p className="text-sm font-medium text-red-400">Danger Zone</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Remove all rooms, instructors, courses, students, and enrollments from
+          your account. Exam periods and generated schedules are not affected.
+        </p>
+        <Button
+          variant="destructive"
+          className="mt-4"
+          onClick={handleClearAll}
+          disabled={isClearingAll}
+        >
+          {isClearingAll ? "Clearing..." : "Clear All Data"}
+        </Button>
+      </div>
     </div>
   );
 }

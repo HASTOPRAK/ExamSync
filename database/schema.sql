@@ -41,15 +41,16 @@ CREATE TABLE IF NOT EXISTS public.departments
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.instructors
 (
-    id            SERIAL PRIMARY KEY,
-    full_name     VARCHAR(120) NOT NULL,
-    email         VARCHAR(120),
-    department_id INTEGER      NOT NULL,
-    is_available  BOOLEAN      DEFAULT TRUE,
-    user_id       INTEGER,                        -- links to users table (when instructor is a teacher)
-    owner_id      INTEGER,                        -- tenant owner (teacher who manages this record)
-    created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP,
+    id              SERIAL PRIMARY KEY,
+    full_name       VARCHAR(120) NOT NULL,
+    email           VARCHAR(120),
+    department_id   INTEGER      NOT NULL,
+    is_available    BOOLEAN      DEFAULT TRUE,
+    instructor_type VARCHAR(20)  NOT NULL DEFAULT 'faculty' CHECK (instructor_type IN ('faculty', 'assistant')),
+    user_id         INTEGER,                        -- links to users table (when instructor is a teacher)
+    owner_id        INTEGER,                        -- tenant owner (teacher who manages this record)
+    created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP,
     CONSTRAINT instructors_owner_email_key UNIQUE (owner_id, email)
 );
 

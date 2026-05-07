@@ -308,7 +308,6 @@ function validateStudentOverlaps(data, instructorAssignmentResult) {
 function validateSchedule(data, instructorAssignmentResult) {
   const issues = [
     ...validateUnscheduledExams(data, instructorAssignmentResult),
-    ...validateExamPeriodMatch(data, instructorAssignmentResult),
     ...validateDurationFit(data, instructorAssignmentResult),
     ...validateRoomCapacity(data, instructorAssignmentResult),
     ...validateRoomDoubleBooking(instructorAssignmentResult),

@@ -376,11 +376,587 @@ async function clearGeneratedCourses({ courseCodePrefix = "TST", ownerId } = {})
   }
 }
 
+// ============================================================
+// CE MOCK DATASET — deterministic Computer Engineering data
+// ============================================================
+
+const CE_DEPARTMENT = { name: "Computer Engineering", code: "CE" };
+
+const CE_ROOMS = [
+  { room_code: "C102", building: "C Block", capacity: 60 },
+  { room_code: "C103", building: "C Block", capacity: 60 },
+  { room_code: "C202", building: "C Block", capacity: 60 },
+  { room_code: "C203", building: "C Block", capacity: 60 },
+  { room_code: "C108", building: "C Block", capacity: 45 },
+  { room_code: "C109", building: "C Block", capacity: 45 },
+  { room_code: "C110", building: "C Block", capacity: 45 },
+  { room_code: "C208", building: "C Block", capacity: 45 },
+  { room_code: "C209", building: "C Block", capacity: 45 },
+  { room_code: "C210", building: "C Block", capacity: 45 },
+];
+
+const CE_FACULTY = [
+  { full_name: "Prof. Ahmet Yılmaz",  email: "ahmet.yilmaz@ce.edu.tr",  courses: ["CE101", "CE301"] },
+  { full_name: "Prof. Mehmet Kaya",   email: "mehmet.kaya@ce.edu.tr",   courses: ["CE102", "CE202"] },
+  { full_name: "Prof. Ayşe Demir",    email: "ayse.demir@ce.edu.tr",    courses: ["CE103"] },
+  { full_name: "Prof. Fatma Çelik",   email: "fatma.celik@ce.edu.tr",   courses: ["CE104", "CE204"] },
+  { full_name: "Prof. Ali Şahin",     email: "ali.sahin@ce.edu.tr",     courses: ["CE201", "CE401"] },
+  { full_name: "Prof. Zeynep Arslan", email: "zeynep.arslan@ce.edu.tr", courses: ["CE203"] },
+  { full_name: "Prof. Mustafa Koç",   email: "mustafa.koc@ce.edu.tr",   courses: ["CE302", "CE402"] },
+  { full_name: "Prof. Elif Güneş",    email: "elif.gunes@ce.edu.tr",    courses: ["CE303", "CE403"] },
+];
+
+const CE_ASSISTANTS = [
+  { full_name: "Arş. Gör. Burak Aydın",  email: "burak.aydin@ce.edu.tr" },
+  { full_name: "Arş. Gör. Selin Yıldız", email: "selin.yildiz@ce.edu.tr" },
+  { full_name: "Arş. Gör. Can Öztürk",   email: "can.ozturk@ce.edu.tr" },
+  { full_name: "Arş. Gör. Deniz Kılıç",  email: "deniz.kilic@ce.edu.tr" },
+  { full_name: "Arş. Gör. Emre Doğan",   email: "emre.dogan@ce.edu.tr" },
+  { full_name: "Arş. Gör. Gizem Şahin",  email: "gizem.sahin@ce.edu.tr" },
+  { full_name: "Arş. Gör. Hakan Yılmaz", email: "hakan.yilmaz@ce.edu.tr" },
+  { full_name: "Arş. Gör. İrem Aksoy",   email: "irem.aksoy@ce.edu.tr" },
+  { full_name: "Arş. Gör. Kerem Çetin",  email: "kerem.cetin@ce.edu.tr" },
+  { full_name: "Arş. Gör. Lale Acar",    email: "lale.acar@ce.edu.tr" },
+];
+
+const CE_COURSES = [
+  { course_code: "CE101", course_name: "Introduction to Programming", exam_duration_minutes: 90 },
+  { course_code: "CE102", course_name: "Mathematics I",               exam_duration_minutes: 120 },
+  { course_code: "CE103", course_name: "Physics I",                   exam_duration_minutes: 90 },
+  { course_code: "CE104", course_name: "English for Engineers",       exam_duration_minutes: 60 },
+  { course_code: "CE201", course_name: "Data Structures",             exam_duration_minutes: 90 },
+  { course_code: "CE202", course_name: "Mathematics II",              exam_duration_minutes: 120 },
+  { course_code: "CE203", course_name: "Digital Logic",               exam_duration_minutes: 90 },
+  { course_code: "CE204", course_name: "Discrete Mathematics",        exam_duration_minutes: 90 },
+  { course_code: "CE301", course_name: "Algorithms",                  exam_duration_minutes: 90 },
+  { course_code: "CE302", course_name: "Database Systems",            exam_duration_minutes: 90 },
+  { course_code: "CE303", course_name: "Operating Systems",           exam_duration_minutes: 90 },
+  { course_code: "CE401", course_name: "Software Engineering",        exam_duration_minutes: 90 },
+  { course_code: "CE402", course_name: "Computer Networks",           exam_duration_minutes: 90 },
+  { course_code: "CE403", course_name: "Machine Learning",            exam_duration_minutes: 90 },
+];
+
+// Student groups: enrollment year encodes the class so student numbers parse correctly.
+// Format: YYYY C E NNN — e.g. 202611001 → year 2026, class 1, first edu, #001
+const CE_STUDENT_GROUPS = [
+  { classNo: 1, educationType: "first",     year: 2026, count: 80 },
+  { classNo: 1, educationType: "secondary", year: 2026, count: 80 },
+  { classNo: 2, educationType: "first",     year: 2025, count: 65 },
+  { classNo: 2, educationType: "secondary", year: 2025, count: 65 },
+  { classNo: 3, educationType: "first",     year: 2024, count: 55 },
+  { classNo: 3, educationType: "secondary", year: 2024, count: 55 },
+  { classNo: 4, educationType: "first",     year: 2023, count: 45 },
+  { classNo: 4, educationType: "secondary", year: 2023, count: 45 },
+];
+
+// Which course codes each class is enrolled in
+const CE_CLASS_COURSE_MAP = {
+  1: ["CE101", "CE102", "CE103", "CE104"],
+  2: ["CE201", "CE202", "CE203", "CE204"],
+  3: ["CE301", "CE302", "CE303", "CE403"],
+  4: ["CE401", "CE402", "CE403"],
+};
+
+function buildCEStudentName(index) {
+  const firstName = FIRST_NAMES[index % FIRST_NAMES.length];
+  const lastName = LAST_NAMES[Math.floor(index / FIRST_NAMES.length) % LAST_NAMES.length];
+  return `${firstName} ${lastName}`;
+}
+
+async function generateCEMockDataset({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Ensure department exists (shared table, no owner_id)
+    const deptResult = await client.query(
+      `INSERT INTO departments (name, code)
+       VALUES ($1, $2)
+       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
+      [CE_DEPARTMENT.name, CE_DEPARTMENT.code],
+    );
+    const departmentId = deptResult.rows[0].id;
+
+    // 2. Insert rooms
+    let insertedRooms = 0;
+    for (const room of CE_ROOMS) {
+      const r = await client.query(
+        `INSERT INTO rooms (room_code, building, capacity, owner_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (owner_id, room_code) DO NOTHING`,
+        [room.room_code, room.building, room.capacity, ownerId],
+      );
+      insertedRooms += r.rowCount;
+    }
+
+    // 3. Insert faculty instructors, collect email→id map
+    const facultyIdByEmail = {};
+    for (const f of CE_FACULTY) {
+      const r = await client.query(
+        `INSERT INTO instructors (full_name, email, department_id, instructor_type, owner_id)
+         VALUES ($1, $2, $3, 'faculty', $4)
+         ON CONFLICT (owner_id, email) DO UPDATE
+           SET full_name = EXCLUDED.full_name, instructor_type = 'faculty', updated_at = NOW()
+         RETURNING id`,
+        [f.full_name, f.email, departmentId, ownerId],
+      );
+      facultyIdByEmail[f.email] = r.rows[0].id;
+    }
+
+    // 4. Insert assistant instructors
+    let insertedAssistants = 0;
+    for (const a of CE_ASSISTANTS) {
+      const r = await client.query(
+        `INSERT INTO instructors (full_name, email, department_id, instructor_type, owner_id)
+         VALUES ($1, $2, $3, 'assistant', $4)
+         ON CONFLICT (owner_id, email) DO UPDATE
+           SET full_name = EXCLUDED.full_name, instructor_type = 'assistant', updated_at = NOW()
+         RETURNING id`,
+        [a.full_name, a.email, departmentId, ownerId],
+      );
+      insertedAssistants += r.rows[0] ? 1 : 0;
+    }
+
+    // 5. Insert courses, collect code→id map
+    const courseIdByCode = {};
+    for (const c of CE_COURSES) {
+      const r = await client.query(
+        `INSERT INTO courses (course_code, course_name, department_id, exam_duration_minutes, owner_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (owner_id, course_code) DO UPDATE
+           SET course_name = EXCLUDED.course_name, exam_duration_minutes = EXCLUDED.exam_duration_minutes
+         RETURNING id`,
+        [c.course_code, c.course_name, departmentId, c.exam_duration_minutes, ownerId],
+      );
+      courseIdByCode[c.course_code] = r.rows[0].id;
+    }
+
+    // 6. Link faculty to their courses via course_instructors
+    for (const f of CE_FACULTY) {
+      const instructorId = facultyIdByEmail[f.email];
+      for (const code of f.courses) {
+        const courseId = courseIdByCode[code];
+        if (courseId && instructorId) {
+          await client.query(
+            `INSERT INTO course_instructors (course_id, instructor_id, role)
+             VALUES ($1, $2, 'primary')
+             ON CONFLICT (course_id, instructor_id) DO NOTHING`,
+            [courseId, instructorId],
+          );
+        }
+      }
+    }
+
+    // 7. Build all student rows deterministically
+    const studentRows = []; // [student_no, full_name, email, department_id, class_no, education_type, owner_id]
+    let nameIndex = 0;
+    for (const group of CE_STUDENT_GROUPS) {
+      const eduDigit = group.educationType === "first" ? "1" : "2";
+      for (let i = 1; i <= group.count; i += 1) {
+        const studentNo = `${group.year}${group.classNo}${eduDigit}${String(i).padStart(3, "0")}`;
+        const fullName = buildCEStudentName(nameIndex);
+        const email = `${studentNo}@ogr.edu.tr`;
+        studentRows.push([studentNo, fullName, email, departmentId, group.classNo, group.educationType, ownerId]);
+        nameIndex += 1;
+      }
+    }
+
+    // 8. Batch insert students
+    const studentNos = studentRows.map((r) => r[0]);
+    if (studentRows.length > 0) {
+      const placeholders = studentRows
+        .map((_, i) => `($${i * 7 + 1}, $${i * 7 + 2}, $${i * 7 + 3}, $${i * 7 + 4}, $${i * 7 + 5}, $${i * 7 + 6}, $${i * 7 + 7})`)
+        .join(", ");
+      await client.query(
+        `INSERT INTO students (student_no, full_name, email, department_id, class_no, education_type, owner_id)
+         VALUES ${placeholders}
+         ON CONFLICT (student_no) DO NOTHING`,
+        studentRows.flat(),
+      );
+    }
+
+    // 9. Query back inserted students to get their IDs
+    const studentsResult = await client.query(
+      `SELECT id, class_no FROM students WHERE student_no = ANY($1) AND owner_id = $2`,
+      [studentNos, ownerId],
+    );
+
+    // 10. Build enrollment pairs (student_id, course_id) based on class_no
+    const enrollmentPairs = []; // [student_id, course_id]
+    for (const student of studentsResult.rows) {
+      const courseCodes = CE_CLASS_COURSE_MAP[student.class_no] || [];
+      for (const code of courseCodes) {
+        const courseId = courseIdByCode[code];
+        if (courseId) enrollmentPairs.push([student.id, courseId]);
+      }
+    }
+
+    // 11. Batch insert enrollments
+    let insertedEnrollments = 0;
+    if (enrollmentPairs.length > 0) {
+      const enrollPlaceholders = enrollmentPairs
+        .map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2}, 'ce_mock')`)
+        .join(", ");
+      const enrollResult = await client.query(
+        `INSERT INTO enrollments (student_id, course_id, enrollment_source)
+         VALUES ${enrollPlaceholders}
+         ON CONFLICT (student_id, course_id) DO NOTHING`,
+        enrollmentPairs.flat(),
+      );
+      insertedEnrollments = enrollResult.rowCount;
+    }
+
+    // 12. Refresh student count cache
+    await refreshStudentCountCache(client);
+
+    await client.query("COMMIT");
+
+    return {
+      success: true,
+      message: "CE mock dataset generated successfully",
+      data: {
+        department: CE_DEPARTMENT.name,
+        insertedRooms,
+        facultyCount: CE_FACULTY.length,
+        assistantCount: CE_ASSISTANTS.length,
+        courseCount: CE_COURSES.length,
+        studentCount: studentsResult.rows.length,
+        insertedEnrollments,
+      },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function clearCEMockDataset({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Delete course_instructors for this owner's courses
+    await client.query(
+      `DELETE FROM course_instructors
+       WHERE course_id IN (SELECT id FROM courses WHERE owner_id = $1)`,
+      [ownerId],
+    );
+
+    // Delete enrollments for this owner's students
+    const deletedEnrollments = await client.query(
+      `DELETE FROM enrollments
+       WHERE student_id IN (SELECT id FROM students WHERE owner_id = $1)
+       RETURNING id`,
+      [ownerId],
+    );
+
+    // Delete students
+    const deletedStudents = await client.query(
+      `DELETE FROM students WHERE owner_id = $1 RETURNING id`,
+      [ownerId],
+    );
+
+    // Delete courses
+    const deletedCourses = await client.query(
+      `DELETE FROM courses WHERE owner_id = $1 RETURNING id`,
+      [ownerId],
+    );
+
+    // Delete instructors
+    const deletedInstructors = await client.query(
+      `DELETE FROM instructors WHERE owner_id = $1 RETURNING id`,
+      [ownerId],
+    );
+
+    // Delete rooms
+    const deletedRooms = await client.query(
+      `DELETE FROM rooms WHERE owner_id = $1 RETURNING id`,
+      [ownerId],
+    );
+
+    await refreshStudentCountCache(client);
+    await client.query("COMMIT");
+
+    return {
+      success: true,
+      message: "CE mock dataset cleared (all owned data removed)",
+      data: {
+        deletedEnrollments: deletedEnrollments.rowCount,
+        deletedStudents: deletedStudents.rowCount,
+        deletedCourses: deletedCourses.rowCount,
+        deletedInstructors: deletedInstructors.rowCount,
+        deletedRooms: deletedRooms.rowCount,
+      },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Granular per-step CE mock loaders ──────────────────────────
+
+async function generateCERoomsMock({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    let inserted = 0;
+    for (const room of CE_ROOMS) {
+      const r = await client.query(
+        `INSERT INTO rooms (room_code, building, capacity, owner_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (owner_id, room_code) DO NOTHING`,
+        [room.room_code, room.building, room.capacity, ownerId],
+      );
+      inserted += r.rowCount;
+    }
+    await client.query("COMMIT");
+    return { success: true, message: "Mock rooms loaded", data: { inserted, total: CE_ROOMS.length } };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function generateCEInstructorsMock({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const deptResult = await client.query(
+      `INSERT INTO departments (name, code) VALUES ($1, $2)
+       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+      [CE_DEPARTMENT.name, CE_DEPARTMENT.code],
+    );
+    const departmentId = deptResult.rows[0].id;
+    for (const f of CE_FACULTY) {
+      await client.query(
+        `INSERT INTO instructors (full_name, email, department_id, instructor_type, owner_id)
+         VALUES ($1, $2, $3, 'faculty', $4)
+         ON CONFLICT (owner_id, email) DO UPDATE
+           SET full_name = EXCLUDED.full_name, instructor_type = 'faculty', updated_at = NOW()`,
+        [f.full_name, f.email, departmentId, ownerId],
+      );
+    }
+    for (const a of CE_ASSISTANTS) {
+      await client.query(
+        `INSERT INTO instructors (full_name, email, department_id, instructor_type, owner_id)
+         VALUES ($1, $2, $3, 'assistant', $4)
+         ON CONFLICT (owner_id, email) DO UPDATE
+           SET full_name = EXCLUDED.full_name, instructor_type = 'assistant', updated_at = NOW()`,
+        [a.full_name, a.email, departmentId, ownerId],
+      );
+    }
+    await client.query("COMMIT");
+    return {
+      success: true,
+      message: "Mock instructors loaded",
+      data: { faculty: CE_FACULTY.length, assistants: CE_ASSISTANTS.length },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function generateCECoursesMock({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const deptResult = await client.query(
+      `INSERT INTO departments (name, code) VALUES ($1, $2)
+       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+      [CE_DEPARTMENT.name, CE_DEPARTMENT.code],
+    );
+    const departmentId = deptResult.rows[0].id;
+    const courseIdByCode = {};
+    for (const c of CE_COURSES) {
+      const r = await client.query(
+        `INSERT INTO courses (course_code, course_name, department_id, exam_duration_minutes, owner_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (owner_id, course_code) DO UPDATE
+           SET course_name = EXCLUDED.course_name, exam_duration_minutes = EXCLUDED.exam_duration_minutes
+         RETURNING id`,
+        [c.course_code, c.course_name, departmentId, c.exam_duration_minutes, ownerId],
+      );
+      courseIdByCode[c.course_code] = r.rows[0].id;
+    }
+    // Link faculty to courses if instructors already exist
+    for (const f of CE_FACULTY) {
+      const instrResult = await client.query(
+        `SELECT id FROM instructors WHERE owner_id = $1 AND email = $2 LIMIT 1`,
+        [ownerId, f.email],
+      );
+      if (instrResult.rows.length > 0) {
+        const instructorId = instrResult.rows[0].id;
+        for (const code of f.courses) {
+          const courseId = courseIdByCode[code];
+          if (courseId) {
+            await client.query(
+              `INSERT INTO course_instructors (course_id, instructor_id, role)
+               VALUES ($1, $2, 'primary')
+               ON CONFLICT (course_id, instructor_id) DO NOTHING`,
+              [courseId, instructorId],
+            );
+          }
+        }
+      }
+    }
+    await client.query("COMMIT");
+    return { success: true, message: "Mock courses loaded", data: { courses: CE_COURSES.length } };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function generateCEStudentsMock({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const deptResult = await client.query(
+      `INSERT INTO departments (name, code) VALUES ($1, $2)
+       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+      [CE_DEPARTMENT.name, CE_DEPARTMENT.code],
+    );
+    const departmentId = deptResult.rows[0].id;
+    const studentRows = [];
+    let nameIndex = 0;
+    for (const group of CE_STUDENT_GROUPS) {
+      const eduDigit = group.educationType === "first" ? "1" : "2";
+      for (let i = 1; i <= group.count; i += 1) {
+        const studentNo = `${group.year}${group.classNo}${eduDigit}${String(i).padStart(3, "0")}`;
+        const fullName = buildCEStudentName(nameIndex);
+        const email = `${studentNo}@ogr.edu.tr`;
+        studentRows.push([studentNo, fullName, email, departmentId, group.classNo, group.educationType, ownerId]);
+        nameIndex += 1;
+      }
+    }
+    if (studentRows.length > 0) {
+      const placeholders = studentRows
+        .map((_, i) => `($${i * 7 + 1}, $${i * 7 + 2}, $${i * 7 + 3}, $${i * 7 + 4}, $${i * 7 + 5}, $${i * 7 + 6}, $${i * 7 + 7})`)
+        .join(", ");
+      await client.query(
+        `INSERT INTO students (student_no, full_name, email, department_id, class_no, education_type, owner_id)
+         VALUES ${placeholders}
+         ON CONFLICT (student_no) DO NOTHING`,
+        studentRows.flat(),
+      );
+    }
+    const studentNos = studentRows.map((r) => r[0]);
+    const countResult = await client.query(
+      `SELECT COUNT(*)::int AS n FROM students WHERE student_no = ANY($1) AND owner_id = $2`,
+      [studentNos, ownerId],
+    );
+    await client.query("COMMIT");
+    return {
+      success: true,
+      message: "Mock students loaded",
+      data: { students: countResult.rows[0].n },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function generateCEEnrollmentsMock({ ownerId } = {}) {
+  if (!ownerId) return { success: false, message: "ownerId is required" };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const coursesResult = await client.query(
+      `SELECT id, course_code FROM courses WHERE owner_id = $1 AND course_code LIKE 'CE%'`,
+      [ownerId],
+    );
+    if (coursesResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { success: false, message: "No CE courses found. Load courses first." };
+    }
+    const courseIdByCode = {};
+    for (const row of coursesResult.rows) courseIdByCode[row.course_code] = row.id;
+
+    const studentsResult = await client.query(
+      `SELECT id, class_no FROM students WHERE owner_id = $1 AND class_no IS NOT NULL`,
+      [ownerId],
+    );
+    if (studentsResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { success: false, message: "No students found. Load students first." };
+    }
+
+    const enrollmentPairs = [];
+    for (const student of studentsResult.rows) {
+      const courseCodes = CE_CLASS_COURSE_MAP[student.class_no] || [];
+      for (const code of courseCodes) {
+        const courseId = courseIdByCode[code];
+        if (courseId) enrollmentPairs.push([student.id, courseId]);
+      }
+    }
+
+    let insertedEnrollments = 0;
+    if (enrollmentPairs.length > 0) {
+      const enrollPlaceholders = enrollmentPairs
+        .map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2}, 'ce_mock')`)
+        .join(", ");
+      const result = await client.query(
+        `INSERT INTO enrollments (student_id, course_id, enrollment_source)
+         VALUES ${enrollPlaceholders}
+         ON CONFLICT (student_id, course_id) DO NOTHING`,
+        enrollmentPairs.flat(),
+      );
+      insertedEnrollments = result.rowCount;
+    }
+
+    await refreshStudentCountCache(client);
+    await client.query("COMMIT");
+    return {
+      success: true,
+      message: "Mock enrollments loaded",
+      data: { insertedEnrollments, studentsProcessed: studentsResult.rows.length },
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export {
   generateDemoDataset,
   clearGeneratedDataset,
   generateDemoCourses,
   clearGeneratedCourses,
+  generateCEMockDataset,
+  clearCEMockDataset,
+  generateCERoomsMock,
+  generateCEInstructorsMock,
+  generateCECoursesMock,
+  generateCEStudentsMock,
+  generateCEEnrollmentsMock,
 };
 
 export default {
@@ -388,4 +964,11 @@ export default {
   clearGeneratedDataset,
   generateDemoCourses,
   clearGeneratedCourses,
+  generateCEMockDataset,
+  clearCEMockDataset,
+  generateCERoomsMock,
+  generateCEInstructorsMock,
+  generateCECoursesMock,
+  generateCEStudentsMock,
+  generateCEEnrollmentsMock,
 };

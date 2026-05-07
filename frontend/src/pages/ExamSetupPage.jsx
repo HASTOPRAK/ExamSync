@@ -277,7 +277,7 @@ export default function ExamSetupPage() {
     try {
       setIsLoadingCourses(true);
       const data = await getCourses();
-      setCourses(Array.isArray(data) ? data : []);
+      setCourses(data?.data || []);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to load courses"));
     } finally {
@@ -665,7 +665,7 @@ export default function ExamSetupPage() {
             </div>
 
             {selectedExamPeriod ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300 space-y-1">
                 <p>
                   <span className="text-slate-500">Academic Year:</span>{" "}
                   {selectedExamPeriod.academic_year}
@@ -682,6 +682,17 @@ export default function ExamSetupPage() {
                   <span className="text-slate-500">Date Range:</span>{" "}
                   {formatDate(selectedExamPeriod.start_date)} -{" "}
                   {formatDate(selectedExamPeriod.end_date)}
+                </p>
+                <p>
+                  <span className="text-slate-500">Quality Score:</span>{" "}
+                  {selectedExamPeriod.schedule_quality_score != null ? (
+                    <span className="font-semibold text-white">
+                      {Number(selectedExamPeriod.schedule_quality_score).toFixed(1)}
+                      <span className="text-slate-500 font-normal"> / 100</span>
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">not scheduled yet</span>
+                  )}
                 </p>
               </div>
             ) : (
@@ -881,6 +892,68 @@ export default function ExamSetupPage() {
                   {report.unscheduledExams.length !== 1 ? "s" : ""} could not be
                   scheduled.
                 </p>
+              )}
+
+              {report.scoring?.metrics && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-2">
+                  <p className="text-xs font-medium text-slate-400">Scoring metrics</p>
+                  <div className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+                    <p className="text-slate-500">
+                      Days used:{" "}
+                      <span className="text-slate-200">{report.summary?.totalDaysUsed ?? "—"}</span>
+                    </p>
+                    <p className="text-slate-500">
+                      Most crowded day:{" "}
+                      <span className="text-slate-200">
+                        {report.scoring.metrics.mostCrowdedDay?.date
+                          ? `${shortDate(report.scoring.metrics.mostCrowdedDay.date)} (${report.scoring.metrics.mostCrowdedDay.examCount} exams)`
+                          : "—"}
+                      </span>
+                    </p>
+                    <p className="text-slate-500">
+                      Same-day student conflicts:{" "}
+                      <span className={report.scoring.metrics.sameDayStudentConflicts > 0 ? "text-red-400" : "text-green-400"}>
+                        {report.scoring.metrics.sameDayStudentConflicts ?? "—"}
+                      </span>
+                    </p>
+                    <p className="text-slate-500">
+                      Max exams/student/day:{" "}
+                      <span className="text-slate-200">{report.scoring.metrics.maxExamsPerStudentPerDay ?? "—"}</span>
+                    </p>
+                    <p className="text-slate-500">
+                      Avg room utilization:{" "}
+                      <span className="text-slate-200">
+                        {report.scoring.metrics.averageRoomUtilization != null
+                          ? `${(report.scoring.metrics.averageRoomUtilization * 100).toFixed(0)}%`
+                          : "—"}
+                      </span>
+                    </p>
+                    <p className="text-slate-500">
+                      Last scheduled:{" "}
+                      <span className="text-slate-200">
+                        {report.scoring?.lastScheduledAt
+                          ? new Date(report.scoring.lastScheduledAt).toLocaleString()
+                          : "—"}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {(report.dayByDaySchedule?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-2">
+                  <p className="text-xs font-medium text-slate-400">Exams per day</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {report.dayByDaySchedule.map((day) => (
+                      <span
+                        key={day.date}
+                        className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+                      >
+                        {shortDate(day.date)}: {day.totalExams}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}

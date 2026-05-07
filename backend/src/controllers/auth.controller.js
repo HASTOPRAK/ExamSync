@@ -40,43 +40,21 @@ async function registerTeacher(req, res) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+    const userResult = await pool.query(
+      `INSERT INTO users (email, password_hash, role)
+       VALUES ($1, $2, 'teacher')
+       RETURNING id, email, role, created_at`,
+      [normalizedEmail, passwordHash],
+    );
+    const user = userResult.rows[0];
+    const token = signToken(user);
 
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role)
-         VALUES ($1, $2, 'teacher')
-         RETURNING id, email, role, created_at`,
-        [normalizedEmail, passwordHash],
-      );
-      const user = userResult.rows[0];
-
-      // Create instructor record owned by this teacher (owner_id = user.id)
-      const instrResult = await client.query(
-        `INSERT INTO instructors (full_name, email, department_id, user_id, owner_id)
-         VALUES ($1, $2, 1, $3, $3)
-         RETURNING id, full_name, email`,
-        [String(full_name).trim(), normalizedEmail, user.id],
-      );
-
-      await client.query("COMMIT");
-
-      const token = signToken(user);
-
-      return res.status(201).json({
-        success: true,
-        message: "Teacher registered successfully",
-        token,
-        user: { id: user.id, email: user.email, role: user.role },
-        instructor: instrResult.rows[0],
-      });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
+    return res.status(201).json({
+      success: true,
+      message: "Teacher registered successfully",
+      token,
+      user: { id: user.id, email: user.email, role: user.role },
+    });
   } catch (error) {
     console.error("Teacher register error:", error);
     return res.status(500).json({ success: false, message: "Registration failed", error: error.message });
