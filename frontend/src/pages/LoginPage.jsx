@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router";
 import { toast } from "sonner";
+import { GraduationCap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { loginUser } from "@/api/authApi";
 import { getApiErrorMessage } from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import logoUrl from "@/assets/logo-dark.svg";
+import LoadingOverlay from "@/components/common/LoadingOverlay";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -15,14 +16,13 @@ export default function LoginPage() {
   const location = useLocation();
   const from = location.state?.from?.pathname ?? "/";
 
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-
     try {
       const data = await loginUser({ email: email.trim(), password });
       login({ token: data.token, user: data.user, profile: data.profile });
@@ -35,20 +35,39 @@ export default function LoginPage() {
     }
   }
 
+  if (loading) return <LoadingOverlay />;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="mb-8 flex justify-center">
-          <img src={logoUrl} alt="ExamSync" className="h-16 w-auto rounded-xl" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      {/* Subtle background gradient */}
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+
+      <div className="relative w-full max-w-sm">
+        {/* Logo mark */}
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
+            <GraduationCap className="h-7 w-7 text-primary" />
+          </div>
+          <div className="text-center">
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              <span className="text-foreground">Exam</span>
+              <span className="text-primary">Sync</span>
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Exam scheduling platform
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
-          <h2 className="mb-6 text-xl font-semibold text-white">Sign in</h2>
+        {/* Card */}
+        <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+          <h2 className="font-display mb-6 text-xl font-semibold text-foreground">
+            Sign in
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -57,12 +76,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-300">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -71,32 +89,34 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-slate-600"
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-white text-slate-900 hover:bg-slate-100"
-            >
+            <Button type="submit" disabled={loading} className="mt-2 w-full">
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-slate-300 underline-offset-4 hover:underline">
-              Register
-            </Link>
-          </p>
-
-          <p className="mt-3 text-center text-sm text-slate-500">
-            Looking for your exam schedule?{" "}
-            <Link to="/check-schedule" className="text-slate-300 underline-offset-4 hover:underline">
-              Check here
-            </Link>
-          </p>
+          <div className="mt-5 space-y-2 border-t border-border pt-5 text-center text-sm text-muted-foreground">
+            <p>
+              Don't have an account?{" "}
+              <Link
+                to="/register"
+                className="font-medium text-primary hover:underline underline-offset-4"
+              >
+                Register
+              </Link>
+            </p>
+            <p>
+              Looking for your schedule?{" "}
+              <Link
+                to="/check-schedule"
+                className="font-medium text-primary hover:underline underline-offset-4"
+              >
+                Check here
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
