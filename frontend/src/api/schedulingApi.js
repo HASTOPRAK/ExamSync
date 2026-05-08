@@ -5,8 +5,23 @@ export async function getExamPeriods() {
   return data;
 }
 
+export async function getExamPeriodById(id) {
+  const { data } = await api.get(`/exam-periods/${id}`);
+  return data;
+}
+
 export async function createExamPeriod(payload) {
   const { data } = await api.post("/exam-periods", payload);
+  return data;
+}
+
+export async function deleteExamPeriod(id) {
+  const { data } = await api.delete(`/exam-periods/${id}`);
+  return data;
+}
+
+export async function updateExamPeriodStatus(id, status) {
+  const { data } = await api.patch(`/exam-periods/${id}/status`, { status });
   return data;
 }
 

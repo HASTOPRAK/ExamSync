@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { PlusIcon } from "lucide-react";
 
 import PageSection from "@/components/common/PageSection";
-import { getValidationSummary, getRecentExamPeriods } from "@/api/dashboardApi";
+import { Button } from "@/components/ui/button";
+import { getValidationSummary } from "@/api/dashboardApi";
+import { getExamPeriods } from "@/api/schedulingApi";
 import { getApiErrorMessage } from "@/api/axios";
 import { formatDate } from "@/utils/formatDate";
 
@@ -17,19 +21,18 @@ const emptySummary = {
 };
 
 export default function DashboardPage() {
-  const [summary, setSummary] = useState(emptySummary);
+  const navigate = useNavigate();
+  const [summary,     setSummary]     = useState(emptySummary);
   const [examPeriods, setExamPeriods] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading,   setIsLoading]   = useState(true);
 
   async function loadDashboard() {
     try {
       setIsLoading(true);
-
       const [summaryRes, periodsRes] = await Promise.all([
         getValidationSummary(),
-        getRecentExamPeriods(),
+        getExamPeriods(),
       ]);
-
       setSummary(summaryRes || emptySummary);
       setExamPeriods(periodsRes?.data || []);
     } catch (error) {
@@ -39,91 +42,119 @@ export default function DashboardPage() {
     }
   }
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  useEffect(() => { loadDashboard(); }, []);
 
   const statCards = useMemo(
     () => [
-      { title: "Students", value: summary.students },
-      { title: "Courses", value: summary.courses },
-      { title: "Enrollments", value: summary.enrollments },
-      { title: "Rooms", value: summary.rooms },
+      { title: "Students",     value: summary.students },
+      { title: "Courses",      value: summary.courses },
+      { title: "Enrollments",  value: summary.enrollments },
+      { title: "Rooms",        value: summary.rooms },
       { title: "Exam Periods", value: summary.examPeriods },
-      { title: "Time Slots", value: summary.timeSlots },
-      { title: "Exams", value: summary.exams },
+      { title: "Exams",        value: summary.exams },
     ],
     [summary],
   );
 
+  const qualityColor = (score) => {
+    if (score == null) return "text-muted-foreground";
+    if (score >= 75) return "text-green-500 dark:text-green-400";
+    if (score >= 50) return "text-amber-500 dark:text-amber-400";
+    return "text-red-500 dark:text-red-400";
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <p className="text-sm uppercase tracking-[0.22em] text-slate-500">
-          Dashboard
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold text-white">
-          System overview
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Quick snapshot of dataset size and the latest exam periods.
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Dashboard</p>
+        <h2 className="font-display mt-2 text-3xl font-bold text-foreground">Overview</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Quick snapshot of your data and exam periods.
         </p>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Stat cards */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {statCards.map((item) => (
           <div
             key={item.title}
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
+            className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md"
           >
-            <p className="text-sm text-slate-400">{item.title}</p>
-            <p className="mt-3 text-3xl font-semibold text-white">
-              {isLoading ? "--" : item.value}
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {item.title}
+            </p>
+            <p className="font-display mt-3 text-4xl font-bold text-foreground">
+              {isLoading ? (
+                <span className="inline-block h-10 w-16 animate-pulse rounded bg-muted" />
+              ) : (
+                item.value.toLocaleString()
+              )}
             </p>
           </div>
         ))}
       </section>
 
+      {/* Exam periods */}
       <PageSection
-        title="Recent exam periods"
-        description="Latest exam periods from the backend."
+        title="Exam Periods"
+        description="Click a row to view its schedule."
       >
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="border-b border-slate-800 text-left text-slate-400">
-              <tr>
-                <th className="px-3 py-3 font-medium">Name</th>
-                <th className="px-3 py-3 font-medium">Academic Year</th>
-                <th className="px-3 py-3 font-medium">Term</th>
-                <th className="px-3 py-3 font-medium">Type</th>
-                <th className="px-3 py-3 font-medium">Range</th>
-                <th className="px-3 py-3 font-medium">Status</th>
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Year</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Term</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Range</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Score</th>
+                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
               </tr>
             </thead>
 
             <tbody>
               {!isLoading && examPeriods.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-slate-500">
-                    No exam periods found yet.
+                  <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                    No exam periods yet.
                   </td>
                 </tr>
+              ) : isLoading ? (
+                [...Array(3)].map((_, i) => (
+                  <tr key={i} className="border-b border-border">
+                    {[...Array(7)].map((_, j) => (
+                      <td key={j} className="px-3 py-3">
+                        <div className="h-4 animate-pulse rounded bg-muted" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : (
-                examPeriods.slice(0, 6).map((period) => (
+                examPeriods.map((period) => (
                   <tr
                     key={period.id}
-                    className="border-b border-slate-900 text-slate-200"
+                    onClick={() => navigate(`/exams/${period.id}`)}
+                    className="cursor-pointer border-b border-border text-foreground transition-colors hover:bg-accent/50"
                   >
-                    <td className="px-3 py-3">{period.name}</td>
-                    <td className="px-3 py-3">{period.academic_year}</td>
-                    <td className="px-3 py-3">{period.term}</td>
-                    <td className="px-3 py-3">{period.exam_type}</td>
-                    <td className="px-3 py-3">
-                      {formatDate(period.start_date)} -{" "}
-                      {formatDate(period.end_date)}
+                    <td className="px-3 py-3 font-medium">{period.name}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{period.academic_year}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{period.term}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{period.exam_type}</td>
+                    <td className="px-3 py-3 text-muted-foreground whitespace-nowrap">
+                      {formatDate(period.start_date)} – {formatDate(period.end_date)}
                     </td>
                     <td className="px-3 py-3">
-                      <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs capitalize text-slate-300">
+                      {period.schedule_quality_score != null ? (
+                        <span className={`font-bold text-base ${qualityColor(Number(period.schedule_quality_score))}`}>
+                          {Number(period.schedule_quality_score).toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full border border-border px-2.5 py-1 text-xs capitalize text-foreground/70">
                         {period.status}
                       </span>
                     </td>
@@ -132,6 +163,13 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 border-t border-border pt-4">
+          <Button onClick={() => navigate("/exams/new")}>
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            New Exam Period
+          </Button>
         </div>
       </PageSection>
     </div>

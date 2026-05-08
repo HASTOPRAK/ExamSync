@@ -12,6 +12,7 @@ import schedulesRoutes from "./schedules.routes.js";
 import importRoutes from "./imports.routes.js";
 import instructorRoutes from "./instructors.routes.js";
 import courseInstructorRoutes from "./courseInstructors.routes.js";
+import academicTermRoutes from "./academicTerms.routes.js";
 import { authenticate, requireRole } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -35,5 +36,6 @@ router.use("/schedules", schedulesRoutes);
 router.use("/imports", importRoutes);
 router.use("/instructors", instructorRoutes);
 router.use("/course-instructors", courseInstructorRoutes);
+router.use("/academic-terms",    academicTermRoutes);
 
 export default router;

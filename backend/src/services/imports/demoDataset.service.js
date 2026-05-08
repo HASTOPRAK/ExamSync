@@ -396,14 +396,14 @@ const CE_ROOMS = [
 ];
 
 const CE_FACULTY = [
-  { full_name: "Prof. Ahmet Yılmaz",  email: "ahmet.yilmaz@ce.edu.tr",  courses: ["CE101", "CE301"] },
-  { full_name: "Prof. Mehmet Kaya",   email: "mehmet.kaya@ce.edu.tr",   courses: ["CE102", "CE202"] },
-  { full_name: "Prof. Ayşe Demir",    email: "ayse.demir@ce.edu.tr",    courses: ["CE103"] },
-  { full_name: "Prof. Fatma Çelik",   email: "fatma.celik@ce.edu.tr",   courses: ["CE104", "CE204"] },
-  { full_name: "Prof. Ali Şahin",     email: "ali.sahin@ce.edu.tr",     courses: ["CE201", "CE401"] },
-  { full_name: "Prof. Zeynep Arslan", email: "zeynep.arslan@ce.edu.tr", courses: ["CE203"] },
-  { full_name: "Prof. Mustafa Koç",   email: "mustafa.koc@ce.edu.tr",   courses: ["CE302", "CE402"] },
-  { full_name: "Prof. Elif Güneş",    email: "elif.gunes@ce.edu.tr",    courses: ["CE303", "CE403"] },
+  { full_name: "Prof. Ahmet Yılmaz",  email: "ahmet.yilmaz@ce.edu.tr",  courses: ["CE101", "CE301", "CE206"] },
+  { full_name: "Prof. Mehmet Kaya",   email: "mehmet.kaya@ce.edu.tr",   courses: ["CE102", "CE202", "CE105"] },
+  { full_name: "Prof. Ayşe Demir",    email: "ayse.demir@ce.edu.tr",    courses: ["CE103", "CE106", "CE306"] },
+  { full_name: "Prof. Fatma Çelik",   email: "fatma.celik@ce.edu.tr",   courses: ["CE104", "CE204", "CE305"] },
+  { full_name: "Prof. Ali Şahin",     email: "ali.sahin@ce.edu.tr",     courses: ["CE201", "CE401", "CE304"] },
+  { full_name: "Prof. Zeynep Arslan", email: "zeynep.arslan@ce.edu.tr", courses: ["CE203", "CE205", "CE406"] },
+  { full_name: "Prof. Mustafa Koç",   email: "mustafa.koc@ce.edu.tr",   courses: ["CE302", "CE402", "CE404"] },
+  { full_name: "Prof. Elif Güneş",    email: "elif.gunes@ce.edu.tr",    courses: ["CE303", "CE403", "CE405"] },
 ];
 
 const CE_ASSISTANTS = [
@@ -420,41 +420,55 @@ const CE_ASSISTANTS = [
 ];
 
 const CE_COURSES = [
-  { course_code: "CE101", course_name: "Introduction to Programming", exam_duration_minutes: 90 },
-  { course_code: "CE102", course_name: "Mathematics I",               exam_duration_minutes: 120 },
-  { course_code: "CE103", course_name: "Physics I",                   exam_duration_minutes: 90 },
-  { course_code: "CE104", course_name: "English for Engineers",       exam_duration_minutes: 60 },
-  { course_code: "CE201", course_name: "Data Structures",             exam_duration_minutes: 90 },
-  { course_code: "CE202", course_name: "Mathematics II",              exam_duration_minutes: 120 },
-  { course_code: "CE203", course_name: "Digital Logic",               exam_duration_minutes: 90 },
-  { course_code: "CE204", course_name: "Discrete Mathematics",        exam_duration_minutes: 90 },
-  { course_code: "CE301", course_name: "Algorithms",                  exam_duration_minutes: 90 },
-  { course_code: "CE302", course_name: "Database Systems",            exam_duration_minutes: 90 },
-  { course_code: "CE303", course_name: "Operating Systems",           exam_duration_minutes: 90 },
-  { course_code: "CE401", course_name: "Software Engineering",        exam_duration_minutes: 90 },
-  { course_code: "CE402", course_name: "Computer Networks",           exam_duration_minutes: 90 },
-  { course_code: "CE403", course_name: "Machine Learning",            exam_duration_minutes: 90 },
+  // Year 1
+  { course_code: "CE101", course_name: "Introduction to Programming", exam_duration_minutes: 60 },
+  { course_code: "CE102", course_name: "Mathematics I",               exam_duration_minutes: 90 },
+  { course_code: "CE103", course_name: "Physics I",                   exam_duration_minutes: 60 },
+  { course_code: "CE104", course_name: "English for Engineers",       exam_duration_minutes: 45 },
+  { course_code: "CE105", course_name: "Calculus",                    exam_duration_minutes: 90 },
+  { course_code: "CE106", course_name: "Technical Drawing",           exam_duration_minutes: 30 },
+  // Year 2
+  { course_code: "CE201", course_name: "Data Structures",             exam_duration_minutes: 75 },
+  { course_code: "CE202", course_name: "Mathematics II",              exam_duration_minutes: 90 },
+  { course_code: "CE203", course_name: "Digital Logic",               exam_duration_minutes: 60 },
+  { course_code: "CE204", course_name: "Discrete Mathematics",        exam_duration_minutes: 75 },
+  { course_code: "CE205", course_name: "Computer Organization",       exam_duration_minutes: 60 },
+  { course_code: "CE206", course_name: "Probability and Statistics",  exam_duration_minutes: 75 },
+  // Year 3
+  { course_code: "CE301", course_name: "Algorithms",                  exam_duration_minutes: 75 },
+  { course_code: "CE302", course_name: "Database Systems",            exam_duration_minutes: 60 },
+  { course_code: "CE303", course_name: "Operating Systems",           exam_duration_minutes: 75 },
+  { course_code: "CE304", course_name: "Computer Architecture",       exam_duration_minutes: 60 },
+  { course_code: "CE305", course_name: "Programming Languages",       exam_duration_minutes: 60 },
+  { course_code: "CE306", course_name: "Theory of Computation",       exam_duration_minutes: 75 },
+  // Year 4
+  { course_code: "CE401", course_name: "Software Engineering",        exam_duration_minutes: 60 },
+  { course_code: "CE402", course_name: "Computer Networks",           exam_duration_minutes: 60 },
+  { course_code: "CE403", course_name: "Machine Learning",            exam_duration_minutes: 75 },
+  { course_code: "CE404", course_name: "Embedded Systems",            exam_duration_minutes: 60 },
+  { course_code: "CE405", course_name: "Distributed Systems",         exam_duration_minutes: 60 },
+  { course_code: "CE406", course_name: "Senior Project I",            exam_duration_minutes: 30 },
 ];
 
 // Student groups: enrollment year encodes the class so student numbers parse correctly.
 // Format: YYYY C E NNN — e.g. 202611001 → year 2026, class 1, first edu, #001
 const CE_STUDENT_GROUPS = [
-  { classNo: 1, educationType: "first",     year: 2026, count: 80 },
-  { classNo: 1, educationType: "secondary", year: 2026, count: 80 },
-  { classNo: 2, educationType: "first",     year: 2025, count: 65 },
-  { classNo: 2, educationType: "secondary", year: 2025, count: 65 },
-  { classNo: 3, educationType: "first",     year: 2024, count: 55 },
-  { classNo: 3, educationType: "secondary", year: 2024, count: 55 },
-  { classNo: 4, educationType: "first",     year: 2023, count: 45 },
-  { classNo: 4, educationType: "secondary", year: 2023, count: 45 },
+  { classNo: 1, educationType: "first",     year: 2026, count: 140 },
+  { classNo: 1, educationType: "secondary", year: 2026, count: 140 },
+  { classNo: 2, educationType: "first",     year: 2025, count: 113 },
+  { classNo: 2, educationType: "secondary", year: 2025, count: 113 },
+  { classNo: 3, educationType: "first",     year: 2024, count: 95 },
+  { classNo: 3, educationType: "secondary", year: 2024, count: 95 },
+  { classNo: 4, educationType: "first",     year: 2023, count: 77 },
+  { classNo: 4, educationType: "secondary", year: 2023, count: 77 },
 ];
 
 // Which course codes each class is enrolled in
 const CE_CLASS_COURSE_MAP = {
-  1: ["CE101", "CE102", "CE103", "CE104"],
-  2: ["CE201", "CE202", "CE203", "CE204"],
-  3: ["CE301", "CE302", "CE303", "CE403"],
-  4: ["CE401", "CE402", "CE403"],
+  1: ["CE101", "CE102", "CE103", "CE104", "CE105", "CE106"],
+  2: ["CE201", "CE202", "CE203", "CE204", "CE205", "CE206"],
+  3: ["CE301", "CE302", "CE303", "CE304", "CE305", "CE306"],
+  4: ["CE401", "CE402", "CE403", "CE404", "CE405", "CE406"],
 };
 
 function buildCEStudentName(index) {
