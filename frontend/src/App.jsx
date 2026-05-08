@@ -3,9 +3,9 @@ import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 import DashboardPage from "@/pages/DashboardPage";
 import DataManagementPage from "@/pages/DataManagementPage";
-import ExamSetupPage from "@/pages/ExamSetupPage";
-import ImportsValidationPage from "@/pages/ImportsValidationPage";
 import SetupPage from "@/pages/SetupPage";
+import NewExamPeriodPage from "@/pages/NewExamPeriodPage";
+import ExamPeriodPage from "@/pages/ExamPeriodPage";
 import CheckSchedulePage from "@/pages/CheckSchedulePage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
@@ -22,10 +22,16 @@ export default function App() {
       <Route element={<ProtectedRoute roles={["teacher", "admin"]} />}>
         <Route element={<AppLayout />}>
           <Route path="/"                   element={<DashboardPage />} />
-          <Route path="/setup"              element={<SetupPage />} />
-          <Route path="/data-management"    element={<DataManagementPage />} />
-          <Route path="/exam-setup"         element={<ExamSetupPage />} />
-          <Route path="/imports-validation" element={<ImportsValidationPage />} />
+          <Route path="/data/setup"         element={<SetupPage />} />
+          <Route path="/data/management"    element={<DataManagementPage />} />
+          <Route path="/exams/new"          element={<NewExamPeriodPage />} />
+          <Route path="/exams/:id"          element={<ExamPeriodPage />} />
+
+          {/* Legacy redirects */}
+          <Route path="/setup"              element={<Navigate to="/data/setup" replace />} />
+          <Route path="/data-management"    element={<Navigate to="/data/management" replace />} />
+          <Route path="/exam-setup"         element={<Navigate to="/exams/new" replace />} />
+          <Route path="/imports-validation" element={<Navigate to="/data/setup" replace />} />
         </Route>
       </Route>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { CheckIcon, Sparkles } from "lucide-react";
+import { CheckIcon, Sparkles, Trash2 } from "lucide-react";
 
 import PageSection from "@/components/common/PageSection";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,12 @@ import { Label } from "@/components/ui/label";
 
 import { getApiErrorMessage } from "@/api/axios";
 import { getRooms, getInstructors } from "@/api/dataApi";
+import {
+  getAcademicTerms,
+  createAcademicTerm,
+  updateAcademicTerm,
+  deleteAcademicTerm,
+} from "@/api/academicTermsApi";
 import {
   generateCEMockDataset,
   loadMockRooms,
@@ -95,9 +101,72 @@ export default function SetupPage() {
     enrollments: false,
   });
 
-  const [coursesImport, setCoursesImport] = useState(initialImportState);
-  const [studentsImport, setStudentsImport] = useState(initialImportState);
+  const [coursesImport,     setCoursesImport]     = useState(initialImportState);
+  const [studentsImport,    setStudentsImport]    = useState(initialImportState);
   const [enrollmentsImport, setEnrollmentsImport] = useState(initialImportState);
+
+  // Academic Terms
+  const [academicTerms,    setAcademicTerms]    = useState([]);
+  const [termForm,         setTermForm]         = useState({ academic_year: "", term: "", semester_start: "", semester_end: "" });
+  const [editingTermId,    setEditingTermId]    = useState(null);
+  const [isSavingTerm,     setIsSavingTerm]     = useState(false);
+
+  const emptyTermForm = { academic_year: "", term: "", semester_start: "", semester_end: "" };
+
+  async function loadAcademicTerms() {
+    try {
+      const res = await getAcademicTerms();
+      setAcademicTerms(res?.data || []);
+    } catch { /* silently skip */ }
+  }
+
+  function handleEditTerm(t) {
+    setEditingTermId(t.id);
+    setTermForm({
+      academic_year:  t.academic_year,
+      term:           t.term,
+      semester_start: t.semester_start?.split("T")[0] ?? "",
+      semester_end:   t.semester_end?.split("T")[0]   ?? "",
+    });
+  }
+
+  function handleCancelEdit() {
+    setEditingTermId(null);
+    setTermForm(emptyTermForm);
+  }
+
+  async function handleSaveTerm(e) {
+    e.preventDefault();
+    setIsSavingTerm(true);
+    try {
+      if (editingTermId) {
+        await updateAcademicTerm(editingTermId, termForm);
+        toast.success("Academic term updated");
+      } else {
+        await createAcademicTerm(termForm);
+        toast.success("Academic term saved");
+      }
+      setEditingTermId(null);
+      setTermForm(emptyTermForm);
+      await loadAcademicTerms();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save academic term"));
+    } finally {
+      setIsSavingTerm(false);
+    }
+  }
+
+  async function handleDeleteTerm(id, label) {
+    if (!window.confirm(`Delete "${label}"?`)) return;
+    try {
+      await deleteAcademicTerm(id);
+      toast.success("Term deleted");
+      if (editingTermId === id) handleCancelEdit();
+      await loadAcademicTerms();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete term"));
+    }
+  }
 
   async function loadCounts() {
     try {
@@ -123,6 +192,7 @@ export default function SetupPage() {
 
   useEffect(() => {
     loadCounts();
+    loadAcademicTerms();
   }, []);
 
   const stepCounts = [
@@ -265,6 +335,113 @@ export default function SetupPage() {
         </Button>
       </div>
 
+      {/* Academic Terms section */}
+      <PageSection
+        title="Academic Calendar"
+        description="Set semester start and end dates per term so the topbar can show academic context (week numbers, countdowns to exams)."
+      >
+        <div className="space-y-5">
+          {/* Existing terms */}
+          {academicTerms.length > 0 && (
+            <div className="space-y-2">
+              {academicTerms.map((t) => {
+                const label = `${t.term} ${t.academic_year}`;
+                const isEditing = editingTermId === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm transition-colors ${
+                      isEditing
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border bg-muted/30 hover:border-border/80 hover:bg-muted/50 cursor-pointer"
+                    }`}
+                    onClick={() => !isEditing && handleEditTerm(t)}
+                    title={isEditing ? undefined : "Click to edit"}
+                  >
+                    <div>
+                      <p className="font-semibold text-foreground">{label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(t.semester_start).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {" – "}
+                        {new Date(t.semester_end).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {isEditing && <span className="ml-2 font-medium text-primary">editing…</span>}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTerm(t.id, label); }}
+                      className="ml-4 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add / Edit term form */}
+          <form onSubmit={handleSaveTerm} className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="term-academic-year">Academic Year</Label>
+              <Input
+                id="term-academic-year"
+                placeholder="2025-2026"
+                value={termForm.academic_year}
+                onChange={(e) => setTermForm((p) => ({ ...p, academic_year: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="term-name">Term</Label>
+              <Input
+                id="term-name"
+                placeholder="Spring"
+                value={termForm.term}
+                onChange={(e) => setTermForm((p) => ({ ...p, term: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="term-start">First Day of Classes</Label>
+              <Input
+                id="term-start"
+                type="date"
+                value={termForm.semester_start}
+                onChange={(e) => setTermForm((p) => ({ ...p, semester_start: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="term-end">Last Day of Classes</Label>
+              <Input
+                id="term-end"
+                type="date"
+                value={termForm.semester_end}
+                onChange={(e) => setTermForm((p) => ({ ...p, semester_end: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="flex items-center gap-3 sm:col-span-2">
+              <Button type="submit" disabled={isSavingTerm}>
+                {isSavingTerm ? "Saving…" : editingTermId ? "Update Term" : "Add Term"}
+              </Button>
+              {editingTermId && (
+                <Button type="button" variant="secondary" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+            {!editingTermId && (
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Exam dates are calculated automatically — midterms at week 8, finals and makeups after the last class day.
+              </p>
+            )}
+          </form>
+        </div>
+      </PageSection>
+
       {/* Stepper layout */}
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         {/* Step navigator */}
@@ -319,7 +496,7 @@ export default function SetupPage() {
                 count={counts.rooms}
                 isLoading={isLoadingCounts}
                 isMockLoading={stepMockLoading.rooms}
-                onNavigate={() => navigate("/data-management")}
+                onNavigate={() => navigate("/data/management")}
                 onMock={() => handleStepMock("rooms", loadMockRooms)}
               />
             )}
@@ -330,7 +507,7 @@ export default function SetupPage() {
                 count={counts.instructors}
                 isLoading={isLoadingCounts}
                 isMockLoading={stepMockLoading.instructors}
-                onNavigate={() => navigate("/data-management")}
+                onNavigate={() => navigate("/data/management")}
                 onMock={() => handleStepMock("instructors", loadMockInstructors)}
                 note="Instructors are split into faculty (course owners) and assistants (exam supervisors)."
               />
@@ -405,7 +582,7 @@ export default function SetupPage() {
             </Button>
 
             {isLast ? (
-              <Button onClick={() => navigate("/exam-setup")}>
+              <Button onClick={() => navigate("/exams/new")}>
                 Go to Exam Setup →
               </Button>
             ) : (

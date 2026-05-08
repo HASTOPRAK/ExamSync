@@ -210,6 +210,24 @@ CREATE TABLE IF NOT EXISTS public.course_instructors
 );
 
 -- ============================================================
+-- ACADEMIC TERMS
+-- Stores semester start/end dates per owner so the UI can show
+-- academic calendar context (countdown to exams, week numbers, etc.)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.academic_terms
+(
+    id             SERIAL PRIMARY KEY,
+    owner_id       INTEGER      NOT NULL,
+    academic_year  VARCHAR(20)  NOT NULL,
+    term           VARCHAR(50)  NOT NULL,
+    semester_start DATE         NOT NULL,
+    semester_end   DATE         NOT NULL,
+    created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP,
+    CONSTRAINT uq_academic_term UNIQUE (owner_id, academic_year, term)
+);
+
+-- ============================================================
 -- FOREIGN KEYS
 -- ============================================================
 
