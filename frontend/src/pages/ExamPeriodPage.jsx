@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { useConfirm } from "@/hooks/useConfirm";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Trash2, MapPin, User, Clock } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { ChevronDown, ChevronUp, Clock, MapPin, Trash2, User } from "lucide-react";
 
 import PageSection from "@/components/common/PageSection";
 import { Button } from "@/components/ui/button";
@@ -16,20 +18,34 @@ import {
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
 
+// ── Animation variants ────────────────────────────────────────────────────────
+
+const pageContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.04 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 340, damping: 28 } },
+};
+
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+const TZ = "Europe/Istanbul";
 
 function shortDate(dateStr) {
   if (!dateStr) return "-";
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T12:00:00+03:00");
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("en-GB", { timeZone: TZ, day: "numeric", month: "short" });
 }
 
 function weekday(dateStr) {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T12:00:00+03:00");
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", { weekday: "short" });
+  return d.toLocaleDateString("en-GB", { timeZone: TZ, weekday: "short" });
 }
 
 function timeToMinutes(timeValue) {
@@ -79,62 +95,41 @@ function getStyle(courseCode) {
 // ── Status picker ─────────────────────────────────────────────────────────────
 
 const STATUSES = [
-  { value: "draft",     label: "Draft",     color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30"   },
-  { value: "scheduled", label: "Scheduled", color: "text-primary",                         bg: "bg-primary/10 border-primary/30"       },
-  { value: "published", label: "Published", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30" },
+  { value: "draft",     label: "Draft",     pill: "bg-amber-500/15 text-amber-700 dark:text-amber-400"        },
+  { value: "scheduled", label: "Scheduled", pill: "bg-primary/15 text-primary"                                },
+  { value: "published", label: "Published", pill: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"  },
 ];
 
-function getStatusMeta(value) {
-  return STATUSES.find((s) => s.value === value) ?? { value, label: value, color: "text-muted-foreground", bg: "bg-muted border-border" };
-}
-
 function StatusPicker({ status, onUpdate }) {
-  const [open, setOpen]           = useState(false);
-  const [updating, setUpdating]   = useState(false);
-  const ref                       = useRef(null);
-  const meta                      = getStatusMeta(status);
-
-  useEffect(() => {
-    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  const [updating, setUpdating] = useState(false);
 
   async function handleSelect(next) {
-    if (next === status) { setOpen(false); return; }
+    if (next === status || updating) return;
     setUpdating(true);
-    setOpen(false);
     await onUpdate(next);
     setUpdating(false);
   }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        disabled={updating}
-        className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 ${meta.bg} ${meta.color}`}
-      >
-        <span className="capitalize">{updating ? "Saving…" : meta.label}</span>
-        <ChevronDown className="h-3 w-3 opacity-60" />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1.5 w-36 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-          {STATUSES.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() => handleSelect(s.value)}
-              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent ${s.value === status ? "font-semibold" : ""}`}
-            >
-              <span className={`h-2 w-2 rounded-full ${s.bg.split(" ")[0].replace("/10", "/80")}`} />
-              <span className={s.color}>{s.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
+    <div className={cn(
+      "flex items-center rounded-full border border-border bg-muted/40 p-0.5 transition-opacity",
+      updating && "pointer-events-none opacity-50",
+    )}>
+      {STATUSES.map((s) => (
+        <button
+          key={s.value}
+          type="button"
+          onClick={() => handleSelect(s.value)}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+            s.value === status
+              ? s.pill
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {s.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -172,6 +167,15 @@ function ScheduleGrid({ report }) {
   const days = report?.dayByDaySchedule ?? [];
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  useEffect(() => {
+    function handler(e) {
+      if (e.key === "ArrowLeft")  setSelectedIndex((i) => Math.max(0, i - 1));
+      if (e.key === "ArrowRight") setSelectedIndex((i) => Math.min(days.length - 1, i + 1));
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [days.length]);
+
   if (days.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -186,15 +190,15 @@ function ScheduleGrid({ report }) {
 
   return (
     <div className="space-y-4">
-      {/* Day tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      {/* Day grid */}
+      <div className="flex flex-wrap gap-1.5">
         {days.map((d, idx) => (
           <button
             key={d.date}
             type="button"
             onClick={() => setSelectedIndex(idx)}
             className={cn(
-              "shrink-0 rounded-lg px-3 py-2 text-sm transition-colors",
+              "rounded-lg px-3 py-2 text-sm transition-colors",
               idx === safeIndex
                 ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                 : "border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -290,8 +294,11 @@ function ScheduleGrid({ report }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ExamPeriodPage() {
+  const shouldReduce = useReducedMotion();
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const [period,        setPeriod]        = useState(null);
   const [report,        setReport]        = useState(null);
@@ -301,16 +308,15 @@ export default function ExamPeriodPage() {
 
   useEffect(() => {
     async function load() {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         const [periodRes, reportRes] = await Promise.allSettled([
           getExamPeriodById(id),
           getScheduleReport(id),
         ]);
         if (periodRes.status === "fulfilled") setPeriod(periodRes.value?.data ?? null);
+        else toast.error("Failed to load exam period");
         if (reportRes.status === "fulfilled") setReport(reportRes.value?.data ?? null);
-      } catch {
-        toast.error("Failed to load exam period");
       } finally {
         setIsLoading(false);
       }
@@ -330,12 +336,13 @@ export default function ExamPeriodPage() {
   }
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        `Delete "${period?.name}"? This will remove all time slots, exams, and room assignments. This cannot be undone.`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Delete "${period?.name}"?`,
+      description: "This will permanently remove all time slots, exams, and room assignments. This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       setIsDeleting(true);
@@ -381,9 +388,15 @@ export default function ExamPeriodPage() {
     :                       "text-red-500 dark:text-red-400";
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      className="space-y-8"
+      variants={shouldReduce ? {} : pageContainer}
+      initial="hidden"
+      animate="show"
+    >
+      {ConfirmDialog}
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <motion.div variants={shouldReduce ? {} : fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Exam Period
@@ -418,9 +431,10 @@ export default function ExamPeriodPage() {
             {isDeleting ? "Deleting…" : "Delete"}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── Schedule grid ────────────────────────────────────────────────── */}
+      <motion.div variants={shouldReduce ? {} : fadeUp}>
       <PageSection
         title="Schedule"
         description={
@@ -431,10 +445,11 @@ export default function ExamPeriodPage() {
       >
         <ScheduleGrid report={report} />
       </PageSection>
+      </motion.div>
 
       {/* ── Metrics ──────────────────────────────────────────────────────── */}
       {qualityScore !== null && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <motion.div variants={shouldReduce ? {} : fadeUp} className="grid gap-4 sm:grid-cols-2">
           <PageSection title="Schedule metrics">
             <div className="space-y-0.5 text-sm">
               <Row label="Scheduled exams"   value={summary.scheduledExams ?? "—"} />
@@ -495,11 +510,12 @@ export default function ExamPeriodPage() {
               </div>
             )}
           </PageSection>
-        </div>
+        </motion.div>
       )}
 
       {/* ── Unscheduled ──────────────────────────────────────────────────── */}
       {(report?.unscheduledExams?.length ?? 0) > 0 && (
+        <motion.div variants={shouldReduce ? {} : fadeUp}>
         <PageSection title={`Unscheduled exams (${report.unscheduledExams.length})`} variant="error">
           <div className="space-y-1">
             {report.unscheduledExams.map((exam) => (
@@ -510,11 +526,12 @@ export default function ExamPeriodPage() {
             ))}
           </div>
         </PageSection>
+        </motion.div>
       )}
 
       {/* ── All exams (collapsible) ───────────────────────────────────────── */}
       {days.length > 0 && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <motion.div variants={shouldReduce ? {} : fadeUp} className="rounded-xl border border-border bg-card overflow-hidden">
           <button
             type="button"
             onClick={() => setExamsExpanded((o) => !o)}
@@ -571,9 +588,9 @@ export default function ExamPeriodPage() {
               </table>
             </div>
           )}
-        </div>
+      </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

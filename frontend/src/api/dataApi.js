@@ -1,5 +1,15 @@
 import api from "@/api/axios";
 
+export async function getStudents() {
+  const { data } = await api.get("/students");
+  return data;
+}
+
+export async function getStudentSchedule(studentId) {
+  const { data } = await api.get(`/students/${studentId}/schedule`);
+  return data;
+}
+
 export async function getRooms() {
   const { data } = await api.get("/rooms");
   return data;
