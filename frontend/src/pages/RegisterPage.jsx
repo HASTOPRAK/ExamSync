@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { GraduationCap } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useAuth } from "@/context/AuthContext";
 import { registerTeacher } from "@/api/authApi";
 import { getApiErrorMessage } from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import LoadingOverlay from "@/components/common/LoadingOverlay";
+import { CenterGlow, DotGridBackground, GrainOverlay } from "@/components/common/PageBackground";
 
 export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +43,7 @@ export default function RegisterPage() {
       login({
         token: data.token,
         user: data.user,
-        profile: data.instructor ?? null,
+        profile: data.profile ?? null,
       });
       toast.success("Account created! Welcome.");
       navigate("/", { replace: true });
@@ -52,17 +54,32 @@ export default function RegisterPage() {
     }
   }
 
-  if (loading) return <LoadingOverlay />;
+  const shouldReduce = useReducedMotion();
+  const fadeUp = shouldReduce
+    ? {}
+    : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+      <DotGridBackground />
+      <GrainOverlay />
+      <CenterGlow />
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
-            <GraduationCap className="h-7 w-7 text-primary" />
+        <motion.div
+          className="mb-8 flex flex-col items-center gap-3"
+          {...fadeUp}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+        >
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
+            <img
+              src={resolvedTheme === "dark"
+                ? "/examsync-brand/mark-40px-dark.svg"
+                : "/examsync-brand/mark-40px.svg"}
+              alt="ExamSync mark"
+              className="h-10 w-10"
+            />
           </div>
           <div className="text-center">
             <h1 className="font-display text-2xl font-bold tracking-tight">
@@ -73,10 +90,14 @@ export default function RegisterPage() {
               Exam scheduling platform
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Card */}
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <motion.div
+          className="rounded-2xl border border-border bg-card p-8 shadow-sm"
+          {...fadeUp}
+          transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
+        >
           <h2 className="font-display mb-6 text-xl font-semibold text-foreground">
             Create account
           </h2>
@@ -142,12 +163,12 @@ export default function RegisterPage() {
             Already have an account?{" "}
             <Link
               to="/login"
-              className="font-medium text-primary hover:underline underline-offset-4"
+              className="font-medium text-primary underline-offset-4 hover:underline"
             >
               Sign in
             </Link>
           </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, NavLink } from "react-router";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import {
   AlertCircle,
   CalendarDays,
@@ -259,6 +260,40 @@ const URGENCY_STYLE = {
   exam: "text-primary font-semibold",
 };
 
+// ── Typewriter breadcrumb ─────────────────────────────────────────────────────
+
+function TypewriterText({ text, className }) {
+  const shouldReduce = useReducedMotion();
+  if (shouldReduce || !text) return <span className={className}>{text}</span>;
+  return (
+    <span className={cn("inline-flex", className)}>
+      {text.split("").map((char, i) => (
+        <motion.span
+          key={i}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: i * 0.03, duration: 0.08 }}
+        >
+          {char === " " ? "\u00A0" : char}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
+
+// ── Theme icon variants ───────────────────────────────────────────────────────
+
+const themeIconVariants = {
+  initial: { y: 8, opacity: 0, scale: 0.5 },
+  animate: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring", stiffness: 400, damping: 20 },
+  },
+  exit: { y: -8, opacity: 0, scale: 0.5, transition: { duration: 0.12 } },
+};
+
 // Returns exam periods that are active or starting within 30 days and have no schedule yet.
 function computeHealthIssues(periods, today) {
   const todayMs = today.getTime();
@@ -350,6 +385,7 @@ function CommandPalette({ examPeriods, onClose }) {
   const inputRef = useRef(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const shouldReduce = useReducedMotion();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -422,13 +458,25 @@ function CommandPalette({ examPeriods, onClose }) {
   const periodItems = allItems.filter((i) => i.group === "period");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[18vh]">
+    <motion.div
+      className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[18vh]"
+      initial={shouldReduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={shouldReduce ? {} : { opacity: 0 }}
+      transition={{ duration: 0.15 }}
+    >
       <div
         className="absolute inset-0 bg-background/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+      <motion.div
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        initial={shouldReduce ? false : { scale: 0.96, y: -12, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={shouldReduce ? {} : { scale: 0.96, y: -12, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      >
         {/* Search input */}
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -565,8 +613,8 @@ function CommandPalette({ examPeriods, onClose }) {
             {allItems.length} result{allItems.length !== 1 ? "s" : ""}
           </span>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -575,6 +623,7 @@ function CommandPalette({ examPeriods, onClose }) {
 function CalendarPopover({ terms, periods, today, onClose }) {
   const ref = useRef(null);
   const navigate = useNavigate();
+  const shouldReduce = useReducedMotion();
 
   useEffect(() => {
     function handler(e) {
@@ -622,10 +671,14 @@ function CalendarPopover({ terms, periods, today, onClose }) {
   }
 
   return (
-    <div
+    <motion.div
       ref={ref}
       className="absolute left-1/2 top-full z-50 mt-2 w-130 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl p-px shadow-xl"
       style={{ background: "var(--border)" }}
+      initial={shouldReduce ? false : { opacity: 0, scale: 0.95, y: -6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={shouldReduce ? {} : { opacity: 0, scale: 0.95, y: -6 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -636,239 +689,312 @@ function CalendarPopover({ terms, periods, today, onClose }) {
         e.currentTarget.style.background = "var(--border)";
       }}
     >
-    <div className="rounded-[15px] bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-sm font-semibold text-foreground">
-          Academic Calendar
-        </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ✕
-        </button>
-      </div>
+      <div className="rounded-[15px] bg-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-sm font-semibold text-foreground">
+            Academic Calendar
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
 
-      {sortedTerms.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No academic terms configured. Add them in{" "}
+        {sortedTerms.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No academic terms configured. Add them in{" "}
+            <NavLink
+              to="/data/setup"
+              className="text-primary hover:underline"
+              onClick={onClose}
+            >
+              Data Setup
+            </NavLink>
+            .
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {sortedTerms.map((term, termIdx) => {
+              const termStart = new Date(term.semester_start).getTime();
+              const termEnd = termTimelineEnd(term);
+              const totalMs = termEnd - termStart;
+              const tPeriods = termPeriodMap(term);
+              const todayPct = pct(today, termStart, totalMs);
+              const inTerm = termStart <= todayMs && todayMs <= termEnd;
+
+              // Always render one block per exam type: solid if period exists, dashed if not
+              const blocks = calcExamBlocks(term).map(
+                ({ label, start, end }) => {
+                  const match = tPeriods.find((p) =>
+                    (p.exam_type ?? "")
+                      .toLowerCase()
+                      .includes(label.toLowerCase()),
+                  );
+                  return {
+                    label,
+                    estStart: start,
+                    estEnd: end,
+                    period: match ?? null,
+                  };
+                },
+              );
+
+              return (
+                <motion.div
+                  key={term.id}
+                  initial={shouldReduce ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: termIdx * 0.08,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 28,
+                  }}
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="font-display text-sm font-semibold text-foreground">
+                      {term.term} {term.academic_year}
+                    </span>
+                    {inTerm && (
+                      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                        Current
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Date range labels */}
+                  <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+                    <span>
+                      {new Date(term.semester_start + "T12:00:00+03:00").toLocaleDateString(
+                        "en-GB",
+                        {
+                          timeZone: "Europe/Istanbul",
+                          day: "numeric",
+                          month: "short",
+                        },
+                      )}
+                    </span>
+                    <span>
+                      {addDays(
+                        new Date(term.semester_end + "T12:00:00+03:00"),
+                        21,
+                      ).toLocaleDateString("en-GB", {
+                        timeZone: "Europe/Istanbul",
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Timeline track */}
+                  <div className="relative h-9 w-full">
+                    <div className="absolute inset-y-3.5 left-0 right-0 rounded-full bg-muted" />
+
+                    {blocks.map(
+                      ({ label, estStart, estEnd, period }, blockIdx) => {
+                        const colors = examTypeColor(label);
+                        const blockStart = period
+                          ? period.start_date
+                          : estStart;
+                        const blockEnd = period ? period.end_date : estEnd;
+                        const leftPct = pct(blockStart, termStart, totalMs);
+                        const rightPct = pct(blockEnd, termStart, totalMs);
+                        const widthPct = Math.max(rightPct - leftPct, 2);
+                        const barDelay = termIdx * 0.1 + blockIdx * 0.07 + 0.05;
+
+                        if (period) {
+                          return (
+                            <motion.button
+                              key={label}
+                              type="button"
+                              onClick={() => goToPeriod(period.id)}
+                              className={cn(
+                                "absolute inset-y-2.5 rounded-full opacity-85 transition-opacity hover:opacity-100 cursor-pointer",
+                                colors.bar,
+                              )}
+                              style={{
+                                left: `${leftPct}%`,
+                                width: `${widthPct}%`,
+                                transformOrigin: "left",
+                              }}
+                              initial={shouldReduce ? false : { scaleX: 0 }}
+                              animate={{ scaleX: 1 }}
+                              transition={{
+                                delay: barDelay,
+                                type: "spring",
+                                stiffness: 280,
+                                damping: 28,
+                              }}
+                              title={`${period.exam_type} — click to open`}
+                            />
+                          );
+                        }
+
+                        return (
+                          <motion.button
+                            key={label}
+                            type="button"
+                            onClick={() => goToNew(term.id, label)}
+                            className={cn(
+                              "absolute inset-y-2.5 rounded-full border-2 border-dashed flex items-center justify-center",
+                              "opacity-60 hover:opacity-100 transition-opacity cursor-pointer",
+                              colors.border,
+                              colors.bgLight,
+                            )}
+                            style={{
+                              left: `${leftPct}%`,
+                              width: `${widthPct}%`,
+                              transformOrigin: "left",
+                            }}
+                            initial={shouldReduce ? false : { scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{
+                              delay: barDelay,
+                              type: "spring",
+                              stiffness: 280,
+                              damping: 28,
+                            }}
+                            title={`${label} (estimated) — click to create exam period`}
+                          >
+                            {widthPct > 5 && (
+                              <span
+                                className={cn(
+                                  "text-[9px] font-bold leading-none select-none",
+                                  colors.text,
+                                )}
+                              >
+                                +
+                              </span>
+                            )}
+                          </motion.button>
+                        );
+                      },
+                    )}
+
+                    {/* Today marker */}
+                    {inTerm && (
+                      <motion.div
+                        className="absolute inset-y-0.5 w-0.5 rounded-full bg-primary shadow-sm"
+                        style={{ left: `${todayPct}%`, transformOrigin: "top" }}
+                        initial={shouldReduce ? false : { scaleY: 0 }}
+                        animate={{ scaleY: 1 }}
+                        transition={{
+                          delay: termIdx * 0.1 + 0.3,
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 25,
+                        }}
+                      >
+                        <motion.div
+                          className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-primary ring-2 ring-card"
+                          initial={shouldReduce ? false : { scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{
+                            delay: termIdx * 0.1 + 0.45,
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 18,
+                          }}
+                        />
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {blocks.map(
+                      ({ label, estStart, estEnd, period }, blockIdx) => {
+                        const colors = examTypeColor(label);
+
+                        if (period) {
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() => goToPeriod(period.id)}
+                              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <span
+                                className={cn(
+                                  "h-2 w-2 rounded-full",
+                                  colors.dot,
+                                )}
+                              />
+                              <span className={colors.label}>
+                                {period.exam_type}
+                              </span>
+                              <span className="text-muted-foreground/50">
+                                {new Date(period.start_date + "T12:00:00+03:00").toLocaleDateString(
+                                  "en-GB",
+                                  { timeZone: "Europe/Istanbul", day: "numeric", month: "short" },
+                                )}
+                                {" – "}
+                                {new Date(period.end_date + "T12:00:00+03:00").toLocaleDateString(
+                                  "en-GB",
+                                  { timeZone: "Europe/Istanbul", day: "numeric", month: "short" },
+                                )}
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => goToNew(term.id, label)}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground/55 hover:text-muted-foreground transition-colors"
+                          >
+                            <span
+                              className={cn(
+                                "h-2 w-2 rounded-full opacity-40",
+                                colors.dot,
+                              )}
+                            />
+                            <span className={cn("opacity-70", colors.label)}>
+                              {label}
+                            </span>
+                            <span className="text-muted-foreground/40">
+                              {estStart.toLocaleDateString("en-GB", {
+                                timeZone: "Europe/Istanbul",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                              {" – "}
+                              {estEnd.toLocaleDateString("en-GB", {
+                                timeZone: "Europe/Istanbul",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                            <span className={cn("font-medium", colors.text)}>
+                              + Add
+                            </span>
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-4 border-t border-border pt-3 text-center">
           <NavLink
             to="/data/setup"
-            className="text-primary hover:underline"
             onClick={onClose}
+            className="text-xs text-muted-foreground hover:text-primary transition-colors"
           >
-            Data Setup
+            Manage academic terms →
           </NavLink>
-          .
-        </p>
-      ) : (
-        <div className="space-y-6">
-          {sortedTerms.map((term) => {
-            const termStart = new Date(term.semester_start).getTime();
-            const termEnd = termTimelineEnd(term);
-            const totalMs = termEnd - termStart;
-            const tPeriods = termPeriodMap(term);
-            const todayPct = pct(today, termStart, totalMs);
-            const inTerm = termStart <= todayMs && todayMs <= termEnd;
-
-            // Always render one block per exam type: solid if period exists, dashed if not
-            const blocks = calcExamBlocks(term).map(({ label, start, end }) => {
-              const match = tPeriods.find((p) =>
-                (p.exam_type ?? "").toLowerCase().includes(label.toLowerCase()),
-              );
-              return {
-                label,
-                estStart: start,
-                estEnd: end,
-                period: match ?? null,
-              };
-            });
-
-            return (
-              <div key={term.id}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="font-display text-sm font-semibold text-foreground">
-                    {term.term} {term.academic_year}
-                  </span>
-                  {inTerm && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
-                      Current
-                    </span>
-                  )}
-                </div>
-
-                {/* Date range labels */}
-                <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
-                  <span>
-                    {new Date(term.semester_start).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                  <span>
-                    {addDays(
-                      new Date(term.semester_end),
-                      21,
-                    ).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                </div>
-
-                {/* Timeline track */}
-                <div className="relative h-9 w-full">
-                  <div className="absolute inset-y-3.5 left-0 right-0 rounded-full bg-muted" />
-
-                  {blocks.map(({ label, estStart, estEnd, period }) => {
-                    const colors = examTypeColor(label);
-                    const blockStart = period ? period.start_date : estStart;
-                    const blockEnd = period ? period.end_date : estEnd;
-                    const leftPct = pct(blockStart, termStart, totalMs);
-                    const rightPct = pct(blockEnd, termStart, totalMs);
-                    const widthPct = Math.max(rightPct - leftPct, 2);
-
-                    if (period) {
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => goToPeriod(period.id)}
-                          className={cn(
-                            "absolute inset-y-2.5 rounded-full opacity-85 transition-opacity hover:opacity-100 cursor-pointer",
-                            colors.bar,
-                          )}
-                          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                          title={`${period.exam_type} — click to open`}
-                        />
-                      );
-                    }
-
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => goToNew(term.id, label)}
-                        className={cn(
-                          "absolute inset-y-2.5 rounded-full border-2 border-dashed flex items-center justify-center",
-                          "opacity-60 hover:opacity-100 transition-opacity cursor-pointer",
-                          colors.border,
-                          colors.bgLight,
-                        )}
-                        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                        title={`${label} (estimated) — click to create exam period`}
-                      >
-                        {widthPct > 5 && (
-                          <span
-                            className={cn(
-                              "text-[9px] font-bold leading-none select-none",
-                              colors.text,
-                            )}
-                          >
-                            +
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-
-                  {/* Today marker */}
-                  {inTerm && (
-                    <div
-                      className="absolute inset-y-0.5 w-0.5 rounded-full bg-primary shadow-sm"
-                      style={{ left: `${todayPct}%` }}
-                    >
-                      <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-primary ring-2 ring-card" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Legend */}
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {blocks.map(({ label, estStart, estEnd, period }) => {
-                    const colors = examTypeColor(label);
-
-                    if (period) {
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => goToPeriod(period.id)}
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <span
-                            className={cn("h-2 w-2 rounded-full", colors.dot)}
-                          />
-                          <span className={colors.label}>
-                            {period.exam_type}
-                          </span>
-                          <span className="text-muted-foreground/50">
-                            {new Date(period.start_date).toLocaleDateString(
-                              "en-GB",
-                              { day: "numeric", month: "short" },
-                            )}
-                            {" – "}
-                            {new Date(period.end_date).toLocaleDateString(
-                              "en-GB",
-                              { day: "numeric", month: "short" },
-                            )}
-                          </span>
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => goToNew(term.id, label)}
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground/55 hover:text-muted-foreground transition-colors"
-                      >
-                        <span
-                          className={cn(
-                            "h-2 w-2 rounded-full opacity-40",
-                            colors.dot,
-                          )}
-                        />
-                        <span className={cn("opacity-70", colors.label)}>
-                          {label}
-                        </span>
-                        <span className="text-muted-foreground/40">
-                          {estStart.toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                          {" – "}
-                          {estEnd.toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </span>
-                        <span className={cn("font-medium", colors.text)}>
-                          + Add
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
         </div>
-      )}
-
-      <div className="mt-4 border-t border-border pt-3 text-center">
-        <NavLink
-          to="/data/setup"
-          onClick={onClose}
-          className="text-xs text-muted-foreground hover:text-primary transition-colors"
-        >
-          Manage academic terms →
-        </NavLink>
       </div>
-    </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -877,6 +1003,7 @@ function CalendarPopover({ terms, periods, today, onClose }) {
 function HealthDropdown({ issues, onNavigate }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const shouldReduce = useReducedMotion();
 
   useEffect(() => {
     function handler(e) {
@@ -888,7 +1015,11 @@ function HealthDropdown({ issues, onNavigate }) {
 
   function fmtDate(str) {
     if (!str) return "";
-    return new Date(str).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    return new Date(str + "T12:00:00+03:00").toLocaleDateString("en-GB", {
+      timeZone: "Europe/Istanbul",
+      day: "numeric",
+      month: "short",
+    });
   }
 
   function issueReason(p) {
@@ -914,31 +1045,54 @@ function HealthDropdown({ issues, onNavigate }) {
         </span>
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
-          <div className="border-b border-border px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">
-              Needs Attention · {issues.length}
-            </p>
-          </div>
-          <div className="p-1">
-            {issues.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { onNavigate(p.id); setOpen(false); }}
-                className="flex w-full flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
-              >
-                <span className="text-sm font-medium text-foreground">{p.name}</span>
-                <span className="text-xs text-amber-500/80">{issueReason(p)}</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtDate(p.start_date)} – {fmtDate(p.end_date)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+            initial={shouldReduce ? false : { opacity: 0, scale: 0.95, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduce ? {} : { opacity: 0, scale: 0.95, y: -6 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            <div className="border-b border-border px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">
+                Needs Attention · {issues.length}
+              </p>
+            </div>
+            <div className="p-1">
+              {issues.map((p, i) => (
+                <motion.button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onNavigate(p.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                  initial={shouldReduce ? false : { opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    delay: i * 0.05,
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 30,
+                  }}
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {p.name}
+                  </span>
+                  <span className="text-xs text-amber-500/80">
+                    {issueReason(p)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {fmtDate(p.start_date)} – {fmtDate(p.end_date)}
+                  </span>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -948,6 +1102,7 @@ function HealthDropdown({ issues, onNavigate }) {
 function AvatarDropdown({ user, profile, onLogout }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const shouldReduce = useReducedMotion();
 
   useEffect(() => {
     function handler(e) {
@@ -977,35 +1132,61 @@ function AvatarDropdown({ user, profile, onLogout }) {
         {initials}
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-card p-1 shadow-xl">
-          <div className="flex items-center gap-3 px-3 py-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {displayName}
-              </p>
-              <p className="text-xs text-muted-foreground">{roleLabel}</p>
-            </div>
-          </div>
-
-          <div className="my-1 border-t border-border" />
-
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onLogout();
-            }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-card p-1 shadow-xl"
+            initial={shouldReduce ? false : { opacity: 0, scale: 0.95, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduce ? {} : { opacity: 0, scale: 0.95, y: -6 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
           >
-            <LogOut className="h-4 w-4 text-muted-foreground" />
-            Sign out
-          </button>
-        </div>
-      )}
+            <motion.div
+              className="flex items-center gap-3 px-3 py-3"
+              initial={shouldReduce ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 0.04,
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
+              }}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {displayName}
+                </p>
+                <p className="text-xs text-muted-foreground">{roleLabel}</p>
+              </div>
+            </motion.div>
+
+            <div className="my-1 border-t border-border" />
+
+            <motion.button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+              initial={shouldReduce ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 0.08,
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
+              }}
+            >
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+              Sign out
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1016,7 +1197,8 @@ export default function Topbar() {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const shouldReduce = useReducedMotion();
   const breadcrumbs = useBreadcrumbs();
 
   const [academicTerms, setAcademicTerms] = useState([]);
@@ -1029,15 +1211,23 @@ export default function Topbar() {
   // Stable ref so visibility/interval effects never need to re-register
   const refetch = useRef(null);
   refetch.current = () => {
-    getAcademicTerms().then((r) => setAcademicTerms(r?.data || [])).catch(() => {});
-    getExamPeriods().then((r) => setExamPeriods(r?.data || [])).catch(() => {});
+    getAcademicTerms()
+      .then((r) => setAcademicTerms(r?.data || []))
+      .catch(() => {});
+    getExamPeriods()
+      .then((r) => setExamPeriods(r?.data || []))
+      .catch(() => {});
   };
 
   // Re-fetch on navigation or when an exam period is mutated elsewhere on the page
-  useEffect(() => { refetch.current(); }, [location.pathname]);
+  useEffect(() => {
+    refetch.current();
+  }, [location.pathname]);
 
   useEffect(() => {
-    function handler() { refetch.current(); }
+    function handler() {
+      refetch.current();
+    }
     window.addEventListener("examperiod:changed", handler);
     return () => window.removeEventListener("examperiod:changed", handler);
   }, []);
@@ -1067,6 +1257,7 @@ export default function Topbar() {
   const healthIssues = computeHealthIssues(examPeriods, today);
 
   const dateLabel = today.toLocaleDateString("en-GB", {
+    timeZone: "Europe/Istanbul",
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -1074,30 +1265,31 @@ export default function Topbar() {
 
   return (
     <>
-      {paletteOpen && (
-        <CommandPalette
-          examPeriods={examPeriods}
-          onClose={() => setPaletteOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {paletteOpen && (
+          <CommandPalette
+            examPeriods={examPeriods}
+            onClose={() => setPaletteOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      <header className="relative z-40 flex h-14 items-center justify-between gap-4 border-b border-border bg-card/80 px-4 backdrop-blur-sm lg:px-6">
+      <header className="relative z-40 flex h-14 items-center justify-between gap-4 border-b border-border bg-card/20 px-4 backdrop-blur-sm lg:px-6">
         {/* ── Left: Breadcrumb ── */}
         <nav className="hidden items-center gap-1.5 text-sm lg:flex">
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-1.5">
+            <span key={crumb.label + i} className="flex items-center gap-1.5">
               {i > 0 && (
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
               )}
-              <span
+              <TypewriterText
+                text={crumb.label}
                 className={
                   i === breadcrumbs.length - 1
                     ? "font-semibold text-foreground"
                     : "text-muted-foreground"
                 }
-              >
-                {crumb.label}
-              </span>
+              />
             </span>
           ))}
         </nav>
@@ -1148,18 +1340,20 @@ export default function Topbar() {
             )}
           </button>
 
-          {calendarOpen && (
-            <CalendarPopover
-              terms={academicTerms}
-              periods={examPeriods}
-              today={today}
-              onClose={() => setCalendarOpen(false)}
-            />
-          )}
+          <AnimatePresence>
+            {calendarOpen && (
+              <CalendarPopover
+                terms={academicTerms}
+                periods={examPeriods}
+                today={today}
+                onClose={() => setCalendarOpen(false)}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* ── Right: search · health · quick-create · theme · avatar ── */}
-        <div className="flex items-center gap-1">
+        {/* ── Right: search · health · quick-create · divider · theme · avatar ── */}
+        <div className="flex items-center gap-1.5">
           {/* ── Feature 1: Command palette trigger ── */}
           <button
             type="button"
@@ -1168,7 +1362,8 @@ export default function Topbar() {
             title="Search (/)"
           >
             <Search className="h-4 w-4" />
-            <span className="hidden items-center gap-1 text-[11px] lg:flex">
+            <span className="hidden items-center gap-1.5 text-[11px] lg:flex">
+              <span className="text-muted-foreground/70">Search </span>
               <kbd className="rounded border border-border px-1 py-0.5 font-sans">
                 /
               </kbd>
@@ -1183,25 +1378,41 @@ export default function Topbar() {
             />
           )}
 
-          {/* ── Feature 4: Quick create ── */}
-          <button
-            type="button"
-            onClick={() => navigate("/exams/new")}
-            className="hidden h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
-            title="New exam period"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          {/* Divider */}
+          <div className="mx-1 h-4 w-px bg-border" />
 
           {/* Theme toggle */}
           <button
             type="button"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title="Toggle theme"
           >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <AnimatePresence mode="wait" initial={false}>
+              {resolvedTheme === "dark" ? (
+                <motion.span
+                  key="moon"
+                  variants={shouldReduce ? {} : themeIconVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="flex items-center justify-center"
+                >
+                  <Moon className="h-4 w-4" />
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="sun"
+                  variants={shouldReduce ? {} : themeIconVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="flex items-center justify-center"
+                >
+                  <Sun className="h-4 w-4" />
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
 
           {user && (

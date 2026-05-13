@@ -11,14 +11,55 @@ router.get("/", requireRole("teacher", "admin"), async (req, res) => {
       `SELECT id, student_no, full_name, email, semester_no, class_no, education_type, status
        FROM students
        WHERE owner_id = $1
-       ORDER BY class_no, education_type, student_no
-       LIMIT 100`,
+       ORDER BY class_no, education_type, student_no`,
       [req.user.id],
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Error fetching students:", error.message);
     res.status(500).json({ success: false, message: "Failed to fetch students" });
+  }
+});
+
+// GET /api/students/:id/schedule — teacher/admin lookup of any student's schedule
+router.get("/:id/schedule", requireRole("teacher", "admin"), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         c.course_code,
+         c.course_name,
+         c.exam_duration_minutes,
+         ep.name            AS exam_period_name,
+         ep.academic_year,
+         ep.term,
+         ep.exam_type,
+         ts.slot_date,
+         ts.start_time,
+         ts.end_time,
+         STRING_AGG(r.room_code, ', ' ORDER BY r.room_code) AS rooms,
+         e.status           AS exam_status,
+         e.notes
+       FROM enrollments en
+       JOIN courses c         ON c.id = en.course_id
+       JOIN exams e           ON e.course_id = c.id
+       JOIN exam_periods ep   ON ep.id = e.exam_period_id
+       LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
+       LEFT JOIN exam_room_assignments era ON era.exam_id = e.id
+       LEFT JOIN rooms r      ON r.id = era.room_id
+       WHERE en.student_id = $1
+         AND ep.owner_id = $2
+         AND e.status != 'draft'
+       GROUP BY c.course_code, c.course_name, c.exam_duration_minutes,
+                ep.name, ep.academic_year, ep.term, ep.exam_type,
+                ts.slot_date, ts.start_time, ts.end_time,
+                e.status, e.notes
+       ORDER BY ts.slot_date, ts.start_time`,
+      [req.params.id, req.user.id],
+    );
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("student schedule error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch student schedule" });
   }
 });
 

@@ -40,13 +40,53 @@ async function registerTeacher(req, res) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const userResult = await pool.query(
-      `INSERT INTO users (email, password_hash, role)
-       VALUES ($1, $2, 'teacher')
-       RETURNING id, email, role, created_at`,
-      [normalizedEmail, passwordHash],
-    );
-    const user = userResult.rows[0];
+    const client = await pool.connect();
+    let user, profile;
+    try {
+      await client.query("BEGIN");
+
+      const userResult = await client.query(
+        `INSERT INTO users (email, password_hash, role)
+         VALUES ($1, $2, 'teacher')
+         RETURNING id, email, role, created_at`,
+        [normalizedEmail, passwordHash],
+      );
+      user = userResult.rows[0];
+
+      // Try to link an existing instructor record with the same email first
+      // (e.g. admin imported them before they registered)
+      const existing = await client.query(
+        `SELECT id FROM instructors WHERE email = $1 AND user_id IS NULL LIMIT 1`,
+        [normalizedEmail],
+      );
+
+      if (existing.rows.length > 0) {
+        const linked = await client.query(
+          `UPDATE instructors SET user_id = $1 WHERE id = $2
+           RETURNING id, full_name, department_id`,
+          [user.id, existing.rows[0].id],
+        );
+        profile = linked.rows[0] ?? null;
+      } else {
+        // Create a new instructor profile for this teacher
+        // department_id is nullable after migration 003
+        const created = await client.query(
+          `INSERT INTO instructors (full_name, email, user_id, owner_id)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, full_name, department_id`,
+          [String(full_name).trim(), normalizedEmail, user.id, user.id],
+        );
+        profile = created.rows[0] ?? null;
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
     const token = signToken(user);
 
     return res.status(201).json({
@@ -54,6 +94,7 @@ async function registerTeacher(req, res) {
       message: "Teacher registered successfully",
       token,
       user: { id: user.id, email: user.email, role: user.role },
+      profile,
     });
   } catch (error) {
     console.error("Teacher register error:", error);
