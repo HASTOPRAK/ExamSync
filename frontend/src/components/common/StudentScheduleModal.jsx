@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, GraduationCap, Calendar, Clock, MapPin } from "lucide-react";
+import { Search, X, GraduationCap, Calendar, Clock, MapPin, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -104,6 +104,19 @@ export default function StudentScheduleModal({ onClose }) {
       .finally(() => setLoadingSchedule(false));
   }, [selectedStudent]);
 
+  // Which year filters actually have data
+  const availableYears = useMemo(() => {
+    const set = new Set(students.map((s) => String(s.class_no)).filter((v) => v !== "null" && v !== "undefined"));
+    return set;
+  }, [students]);
+
+  // Reset year filter if the selected year has no data
+  useEffect(() => {
+    if (classFilter !== "All" && !availableYears.has(classFilter)) {
+      setClassFilter("All");
+    }
+  }, [availableYears]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filter students
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -155,7 +168,10 @@ export default function StudentScheduleModal({ onClose }) {
       >
 
         {/* ── Left: student list ── */}
-        <div className="flex w-72 shrink-0 flex-col border-r border-border">
+        <div className={cn(
+          "flex-col border-r border-border w-full sm:w-72 sm:shrink-0",
+          selectedStudent ? "hidden sm:flex" : "flex",
+        )}>
 
           {/* Header */}
           <div className="border-b border-border px-4 py-4">
@@ -182,9 +198,9 @@ export default function StudentScheduleModal({ onClose }) {
               />
             </div>
 
-            {/* Class filter chips */}
+            {/* Class filter chips — year chips only shown when data has that year */}
             <div className="mt-2 flex gap-1">
-              {CLASS_LABELS.map((c) => (
+              {CLASS_LABELS.filter((c) => c === "All" || availableYears.has(c)).map((c) => (
                 <motion.button
                   key={c}
                   type="button"
@@ -247,7 +263,7 @@ export default function StudentScheduleModal({ onClose }) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold">{s.full_name}</p>
-                      <p className="text-[10px] text-muted-foreground">{s.student_no} · Yr {s.class_no}</p>
+                      <p className="text-[10px] text-muted-foreground">{s.student_no}{s.class_no != null ? ` · Yr ${s.class_no}` : ""}</p>
                     </div>
                   </button>
                 ))}
@@ -262,7 +278,10 @@ export default function StudentScheduleModal({ onClose }) {
         </div>
 
         {/* ── Right: schedule ── */}
-        <div className="relative flex flex-1 flex-col overflow-hidden">
+        <div className={cn(
+          "relative flex-1 flex-col overflow-hidden",
+          !selectedStudent ? "hidden sm:flex" : "flex",
+        )}>
           <AnimatePresence mode="wait">
             {!selectedStudent ? (
               <motion.div
@@ -291,25 +310,39 @@ export default function StudentScheduleModal({ onClose }) {
                 transition={shouldReduce ? {} : spring}
               >
                 {/* Student header */}
-                <div className="border-b border-border px-6 py-4">
+                <div className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudent(null)}
+                      className="sm:hidden shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
                     <div className={cn(
                       "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
                       YEAR_BADGE[selectedStudent.class_no] ?? "bg-muted text-muted-foreground",
                     )}>
                       {String(selectedStudent.full_name ?? "?")[0].toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{selectedStudent.full_name}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-foreground">{selectedStudent.full_name}</p>
                       <p className="text-xs text-muted-foreground">
                         {selectedStudent.student_no} · Year {selectedStudent.class_no} · {selectedStudent.education_type}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="sm:hidden shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
 
                 {/* Schedule body */}
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                   <AnimatePresence mode="wait">
                     {loadingSchedule ? (
                       <motion.div
@@ -345,7 +378,7 @@ export default function StudentScheduleModal({ onClose }) {
                             key={periodName}
                             initial={shouldReduce ? {} : { opacity: 0, y: 12 }}
                             animate={shouldReduce ? {} : { opacity: 1, y: 0 }}
-                            transition={shouldReduce ? {} : { ...spring, delay: gi * 0.06 }}
+                            transition={shouldReduce ? {} : { ...spring, delay: Math.min(gi * 0.06, 0.18) }}
                           >
                             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                               {periodName}
@@ -356,7 +389,7 @@ export default function StudentScheduleModal({ onClose }) {
                                   key={i}
                                   initial={shouldReduce ? {} : { opacity: 0, y: 8 }}
                                   animate={shouldReduce ? {} : { opacity: 1, y: 0 }}
-                                  transition={shouldReduce ? {} : { ...spring, delay: gi * 0.06 + i * 0.04 }}
+                                  transition={shouldReduce ? {} : { ...spring, delay: Math.min(gi * 0.06 + i * 0.04, 0.3) }}
                                   className="flex items-start gap-4 rounded-xl border border-border bg-muted/30 px-4 py-3"
                                 >
                                   <div className="w-20 shrink-0 text-center">

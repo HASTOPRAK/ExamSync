@@ -48,9 +48,8 @@ export default function WhyExamSyncSection() {
   const shouldReduce = useReducedMotion();
 
   return (
-    <section id="why-examsync" className="py-20 md:py-28 bg-muted/[0.03]">
+    <section id="why-examsync" className="py-20 md:py-28 bg-muted/3">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
         {/* Heading */}
         <motion.div
           initial={shouldReduce ? {} : { opacity: 0, y: 20 }}
@@ -59,7 +58,9 @@ export default function WhyExamSyncSection() {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Why ExamSync</h2>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            Why ExamSync
+          </h2>
           <p className="mt-4 text-xl text-muted-foreground">
             Stop building exam schedules in a spreadsheet. There's a better way.
           </p>
@@ -82,12 +83,15 @@ export default function WhyExamSyncSection() {
               <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
                 <stat.icon className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">{stat.label}</h3>
-              <p className="text-base text-muted-foreground leading-relaxed">{stat.description}</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">
+                {stat.label}
+              </h3>
+              <p className="text-base text-muted-foreground leading-relaxed">
+                {stat.description}
+              </p>
             </motion.div>
           ))}
         </motion.div>
-
       </div>
     </section>
   );

@@ -12,9 +12,9 @@ function buildTemplateCsv() {
 
 function buildStudentTemplateCsv() {
   return [
-    "student_no,full_name",
-    "20260001,Ali Yılmaz",
-    "20260002,Ayşe Demir",
+    "student_no,full_name,class_no",
+    "20260001,Ali Yılmaz,1",
+    "20260002,Ayşe Demir,2",
   ].join("\n");
 }
 
@@ -312,7 +312,8 @@ async function previewStudentImport(fileBuffer, ownerId) {
       errors.push({ row: rowNumber, field: "full_name", message: "full_name is required" });
       continue;
     }
-    validRows.push({ row: rowNumber, studentNo, fullName });
+    const classNo = row.class_no ? parseInt(row.class_no, 10) : null;
+    validRows.push({ row: rowNumber, studentNo, fullName, classNo });
   }
 
   const studentNos = validRows.map((r) => r.studentNo);
@@ -364,14 +365,15 @@ async function commitStudentImport(fileBuffer, ownerId) {
     for (const row of rows) {
       const studentNo = row.student_no;
       const fullName = row.full_name;
+      const classNo = row.class_no ? parseInt(row.class_no, 10) : null;
 
       if (!studentNo || !fullName) continue;
 
       const result = await client.query(
-        `INSERT INTO students (student_no, full_name, department_id, owner_id)
-         VALUES ($1, $2, 1, $3)
-         ON CONFLICT (student_no) DO NOTHING`,
-        [studentNo, fullName, ownerId],
+        `INSERT INTO students (student_no, full_name, class_no, department_id, owner_id)
+         VALUES ($1, $2, $3, 1, $4)
+         ON CONFLICT (student_no) DO UPDATE SET class_no = EXCLUDED.class_no WHERE EXCLUDED.class_no IS NOT NULL`,
+        [studentNo, fullName, classNo, ownerId],
       );
 
       inserted += result.rowCount;

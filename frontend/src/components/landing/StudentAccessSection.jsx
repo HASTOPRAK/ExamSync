@@ -14,7 +14,7 @@ export default function StudentAccessSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-8"
+          className="rounded-2xl border border-primary/25 bg-primary/4 p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-8"
         >
           {/* Icon */}
           <div className="h-16 w-16 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
@@ -27,8 +27,9 @@ export default function StudentAccessSection() {
               Students don't need an account
             </h3>
             <p className="text-muted-foreground text-base md:text-lg">
-              Once a schedule is published, students enter their student number to see every exam —
-              date, time, room, and course. No registration, no app, no IT support needed.
+              Once a schedule is published, students enter their student number
+              to see every exam — date, time, room, and course. No registration,
+              no app, no IT support needed.
             </p>
           </div>
 
