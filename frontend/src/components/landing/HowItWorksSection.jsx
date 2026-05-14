@@ -26,9 +26,8 @@ export default function HowItWorksSection() {
   const shouldReduce = useReducedMotion();
 
   return (
-    <section id="how-it-works" className="py-20 md:py-28 bg-muted/[0.03]">
+    <section id="how-it-works" className="py-20 md:py-28 bg-muted/3">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
         {/* Heading */}
         <motion.div
           initial={shouldReduce ? {} : { opacity: 0, y: 20 }}
@@ -37,7 +36,9 @@ export default function HowItWorksSection() {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">How it works</h2>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            How it works
+          </h2>
           <p className="mt-4 text-xl text-muted-foreground">
             From raw data to a published exam schedule in three steps.
           </p>
@@ -45,7 +46,6 @@ export default function HowItWorksSection() {
 
         {/* Steps */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-
           {/* Connecting dashed line — desktop only */}
           <div className="hidden md:block absolute top-10 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-px border-t border-dashed border-border/70" />
 
@@ -68,14 +68,15 @@ export default function HowItWorksSection() {
                 </span>
               </div>
 
-              <h3 className="text-xl font-semibold text-foreground mb-3">{step.title}</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-3">
+                {step.title}
+              </h3>
               <p className="text-base text-muted-foreground leading-relaxed max-w-xs">
                 {step.description}
               </p>
             </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   );

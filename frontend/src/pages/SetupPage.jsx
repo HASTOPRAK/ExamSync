@@ -255,7 +255,7 @@ function QuickStartBox({ counts, isLoading, isLoadingMock, onLoadMock, onDemoSee
       <AnimatePresence>
         {open && (
           <motion.div
-            className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-2xl p-px shadow-xl shadow-primary/10"
+            className="fixed right-4 top-20 z-50 w-72 rounded-2xl p-px shadow-xl shadow-primary/10 sm:absolute sm:right-0 sm:top-[calc(100%+8px)]"
             style={{
               background:
                 "linear-gradient(135deg, oklch(0.635 0.167 228 / 0.35), oklch(0.5 0.2 280 / 0.25))",
@@ -561,64 +561,99 @@ function AcademicCalendarGrid({
   const cols = `64px repeat(${years.length}, 1fr)`;
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-130 space-y-2">
-        {/* Year header row */}
-        <div className="grid gap-x-3" style={{ gridTemplateColumns: cols }}>
-          <div />
-          {years.map((year) => (
-            <div
-              key={year}
-              className="pb-1 text-center text-xs font-semibold text-foreground"
-            >
-              {year}
+    <>
+      {/* ── Mobile: one section per year, 3-term row ── */}
+      <div className="space-y-4 lg:hidden">
+        {years.map((year) => (
+          <div key={year}>
+            <p className="mb-2 text-xs font-semibold text-foreground">{year}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {TERM_TYPES.map((termType) => {
+                const existing = academicTerms.find(
+                  (t) => t.academic_year === year && t.term === termType,
+                );
+                const isEdit =
+                  editingCell?.year === year && editingCell?.term === termType;
+                return (
+                  <TermCell
+                    key={`${year}-${termType}`}
+                    year={year}
+                    termType={termType}
+                    existing={existing ?? null}
+                    isEditing={isEdit}
+                    editingCell={editingCell}
+                    setEditingCell={setEditingCell}
+                    onSave={onSave}
+                    onDelete={() => onDelete(existing?.id, `${termType} ${year}`)}
+                    isSaving={isSaving}
+                  />
+                );
+              })}
             </div>
-          ))}
-        </div>
-
-        {/* Term rows */}
-        {TERM_TYPES.map((termType) => (
-          <div
-            key={termType}
-            className="grid items-start gap-x-3"
-            style={{ gridTemplateColumns: cols }}
-          >
-            {/* Row label */}
-            <div
-              className={cn(
-                "flex items-center pt-2.5 text-xs font-medium text-muted-foreground",
-                termType === "Summer" && "text-[11px] text-muted-foreground/70",
-              )}
-            >
-              {termType}
-            </div>
-
-            {/* Cells */}
-            {years.map((year) => {
-              const existing = academicTerms.find(
-                (t) => t.academic_year === year && t.term === termType,
-              );
-              const isEdit =
-                editingCell?.year === year && editingCell?.term === termType;
-              return (
-                <TermCell
-                  key={`${year}-${termType}`}
-                  year={year}
-                  termType={termType}
-                  existing={existing ?? null}
-                  isEditing={isEdit}
-                  editingCell={editingCell}
-                  setEditingCell={setEditingCell}
-                  onSave={onSave}
-                  onDelete={() => onDelete(existing?.id, `${termType} ${year}`)}
-                  isSaving={isSaving}
-                />
-              );
-            })}
           </div>
         ))}
       </div>
-    </div>
+
+      {/* ── Desktop: original 3-column grid ── */}
+      <div className="hidden overflow-x-auto lg:block">
+        <div className="min-w-130 space-y-2">
+          {/* Year header row */}
+          <div className="grid gap-x-3" style={{ gridTemplateColumns: cols }}>
+            <div />
+            {years.map((year) => (
+              <div
+                key={year}
+                className="pb-1 text-center text-xs font-semibold text-foreground"
+              >
+                {year}
+              </div>
+            ))}
+          </div>
+
+          {/* Term rows */}
+          {TERM_TYPES.map((termType) => (
+            <div
+              key={termType}
+              className="grid items-start gap-x-3"
+              style={{ gridTemplateColumns: cols }}
+            >
+              {/* Row label */}
+              <div
+                className={cn(
+                  "flex items-center pt-2.5 text-xs font-medium text-muted-foreground",
+                  termType === "Summer" && "text-[11px] text-muted-foreground/70",
+                )}
+              >
+                {termType}
+              </div>
+
+              {/* Cells */}
+              {years.map((year) => {
+                const existing = academicTerms.find(
+                  (t) => t.academic_year === year && t.term === termType,
+                );
+                const isEdit =
+                  editingCell?.year === year && editingCell?.term === termType;
+                return (
+                  <TermCell
+                    key={`${year}-${termType}`}
+                    year={year}
+                    termType={termType}
+                    existing={existing ?? null}
+                    isEditing={isEdit}
+                    editingCell={editingCell}
+                    setEditingCell={setEditingCell}
+                    onSave={onSave}
+                    onDelete={() => onDelete(existing?.id, `${termType} ${year}`)}
+                    isSaving={isSaving}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1052,7 +1087,7 @@ export default function SetupPage() {
     <div className="space-y-8">
       {ConfirmDialog}
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
             Setup
@@ -1105,8 +1140,8 @@ export default function SetupPage() {
               Setup Steps
             </span>
 
-            {/* Step status pills */}
-            <div className="flex items-center gap-2">
+            {/* Step status icons — desktop only */}
+            <div className="hidden items-center gap-2 sm:flex">
               {STEPS.map((s, idx) => {
                 const count = stepCounts[idx];
                 const done = count !== null && count > 0;
@@ -1157,10 +1192,42 @@ export default function SetupPage() {
               transition={{ type: "spring", stiffness: 280, damping: 28 }}
               className="overflow-hidden"
             >
-              <div className="border-t border-border p-5">
+              <div className="border-t border-border p-4 sm:p-5">
+                {/* Mobile tab strip — sits above the grid, hidden on desktop */}
+                <div className="mb-4 flex overflow-x-auto gap-1 pb-1 lg:hidden">
+                  {STEPS.map((s, idx) => {
+                    const count = stepCounts[idx];
+                    const done = count !== null && count > 0;
+                    const active = idx === currentStep;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setCurrentStep(idx)}
+                        className={cn(
+                          "shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                      >
+                        <span className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",
+                          done
+                            ? active ? "bg-white/25 text-primary-foreground" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : active ? "bg-white/20 text-primary-foreground" : "bg-muted text-muted-foreground",
+                        )}>
+                          {done ? <CheckCircle2 className="h-2.5 w-2.5" /> : idx + 1}
+                        </span>
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
-                  {/* Step navigator */}
-                  <nav className="space-y-1">
+                  {/* Desktop left nav — hidden on mobile */}
+                  <nav className="hidden space-y-1 lg:block">
                     {STEPS.map((s, idx) => {
                       const count = stepCounts[idx];
                       const done = count !== null && count > 0;
@@ -1206,10 +1273,14 @@ export default function SetupPage() {
 
                   {/* Step content */}
                   <div className="space-y-4">
-                    <PageSection
-                      title={`Step ${currentStep + 1} — ${step.label}`}
-                      description={step.description}
-                    >
+                    <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                      <p className="text-sm font-semibold text-foreground">
+                        Step {currentStep + 1} — {step.label}
+                      </p>
+                      {step.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+                      )}
+                      <div className="mt-4">
                       {step.id === "rooms" && (
                         <StepManualOnly
                           label="rooms"
@@ -1348,7 +1419,8 @@ export default function SetupPage() {
                           }
                         />
                       )}
-                    </PageSection>
+                      </div>
+                    </div>
 
                     {/* Prev / Next */}
                     <div className="flex items-center justify-between">

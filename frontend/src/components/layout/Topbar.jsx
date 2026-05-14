@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, NavLink } from "react-router";
+import { useLocation, useNavigate, NavLink, Link } from "react-router";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -11,6 +11,7 @@ import {
   Database,
   LayoutDashboard,
   LogOut,
+  Menu,
   Moon,
   Plus,
   Search,
@@ -1193,7 +1194,7 @@ function AvatarDropdown({ user, profile, onLogout }) {
 
 // ── Main Topbar ───────────────────────────────────────────────────────────────
 
-export default function Topbar() {
+export default function Topbar({ onMobileMenuClick }) {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1294,12 +1295,19 @@ export default function Topbar() {
           ))}
         </nav>
 
-        {/* Mobile: logo */}
+        {/* Mobile: hamburger + logo */}
         <div className="flex items-center gap-2 lg:hidden">
-          <span className="font-display text-sm font-bold">
+          <button
+            type="button"
+            onClick={onMobileMenuClick}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link to="/" className="font-display text-sm font-bold">
             <span className="text-foreground">Exam</span>
             <span className="text-primary">Sync</span>
-          </span>
+          </Link>
         </div>
 
         {/* ── Center: Date + Era + Calendar trigger ── */}
@@ -1358,7 +1366,7 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="flex h-8 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="hidden lg:flex h-8 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title="Search (/)"
           >
             <Search className="h-4 w-4" />
@@ -1372,14 +1380,16 @@ export default function Topbar() {
 
           {/* ── Feature 2: Schedule health dropdown ── */}
           {healthIssues.length > 0 && (
-            <HealthDropdown
-              issues={healthIssues}
-              onNavigate={(id) => navigate(`/exams/${id}`)}
-            />
+            <div className="hidden lg:block">
+              <HealthDropdown
+                issues={healthIssues}
+                onNavigate={(id) => navigate(`/exams/${id}`)}
+              />
+            </div>
           )}
 
           {/* Divider */}
-          <div className="mx-1 h-4 w-px bg-border" />
+          <div className="hidden lg:block mx-1 h-4 w-px bg-border" />
 
           {/* Theme toggle */}
           <button

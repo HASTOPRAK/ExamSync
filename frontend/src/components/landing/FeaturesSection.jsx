@@ -49,7 +49,6 @@ export default function FeaturesSection() {
   return (
     <section id="features" className="py-20 md:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
         {/* Heading */}
         <motion.div
           initial={shouldReduce ? {} : { opacity: 0, y: 20 }}
@@ -58,9 +57,12 @@ export default function FeaturesSection() {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Built for the job</h2>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            Built for the job
+          </h2>
           <p className="mt-4 text-xl text-muted-foreground">
-            Every feature exists because manual scheduling made someone's week terrible.
+            Every feature exists because manual scheduling made someone's week
+            terrible.
           </p>
         </motion.div>
 
@@ -76,17 +78,20 @@ export default function FeaturesSection() {
             <motion.div
               key={feature.title}
               variants={shouldReduce ? {} : itemVariants}
-              className="group rounded-xl border border-border bg-card p-8 hover:border-primary/40 hover:bg-primary/[0.02] transition-colors duration-200"
+              className="group rounded-xl border border-border bg-card p-8 hover:border-primary/40 hover:bg-primary/2 transition-colors duration-200"
             >
               <div className="h-11 w-11 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
                 <feature.icon className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-base text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {feature.title}
+              </h3>
+              <p className="text-base text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </motion.div>
-
       </div>
     </section>
   );
