@@ -10,7 +10,7 @@ export function CenterGlow() {
       className="pointer-events-none fixed inset-0"
       style={{
         background:
-          "radial-gradient(ellipse 70% 55% at 50% 50%, oklch(0.635 0.167 228 / 0.07) 0%, transparent 100%)",
+          "radial-gradient(ellipse 70% 55% at 50% 50%, oklch(0.52 0.155 264 / 0.07) 0%, transparent 100%)",
       }}
       animate={shouldReduce ? {} : { opacity: [0.4, 1, 0.4] }}
       transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
@@ -26,8 +26,8 @@ export function DotGridBackground() {
 
   const dotColor =
     resolvedTheme === "dark"
-      ? "oklch(0.635 0.167 228 / 0.28)"
-      : "oklch(0.635 0.167 228 / 0.18)";
+      ? "oklch(0.52 0.155 264 / 0.28)"
+      : "oklch(0.52 0.155 264 / 0.18)";
 
   return (
     <motion.div

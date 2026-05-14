@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
+import LandingPage from "@/pages/LandingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import DataManagementPage from "@/pages/DataManagementPage";
 import SetupPage from "@/pages/SetupPage";
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <Routes>
       {/* Public pages */}
+      <Route path="/"               element={<LandingPage />} />
       <Route path="/login"          element={<LoginPage />} />
       <Route path="/register"       element={<RegisterPage />} />
       <Route path="/check-schedule" element={<CheckSchedulePage />} />
@@ -21,7 +23,7 @@ export default function App() {
       {/* Teacher / Admin only */}
       <Route element={<ProtectedRoute roles={["teacher", "admin"]} />}>
         <Route element={<AppLayout />}>
-          <Route path="/"                   element={<DashboardPage />} />
+          <Route path="/dashboard"          element={<DashboardPage />} />
           <Route path="/data/setup"         element={<SetupPage />} />
           <Route path="/data/management"    element={<DataManagementPage />} />
           <Route path="/exams/new"          element={<NewExamPeriodPage />} />
@@ -36,7 +38,7 @@ export default function App() {
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -46,7 +46,7 @@ export default function RegisterPage() {
         profile: data.profile ?? null,
       });
       toast.success("Account created! Welcome.");
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Registration failed"));
     } finally {
