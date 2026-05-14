@@ -81,33 +81,29 @@ describe("scoreSchedule", () => {
         makeValidation(0),
       );
 
-      // With no exams no room assignments and no student conflicts
-      // the only penalty comes from room utilization (0 vs target 0.7)
-      // → 100 - 0.7*15 = 89.5, but with 0 room assignments avg is 0
-      // Let's just check it's a high score (>= 80) or handle it precisely:
-      // score = 100 - (0/0)*4 - (0/0)*2 - max(0,0-2)*6 - max(0,0-6)*2.5 - max(0,0.7-0)*15
-      // = 100 - 0 - 0 - 0 - 0 - 10.5 = 89.5
-      // (totalExams defaults to 1 in the formula, averageRoomUtilization = 0)
-      expect(result.qualityScore).toBeGreaterThanOrEqual(85);
-      expect(result.qualityScore).toBeLessThanOrEqual(100);
+      // No violations, no room assignments → utilization penalty is skipped
+      // (we don't penalise underutilization when no rooms are assigned yet),
+      // so the score should be exactly 100.
+      expect(result.qualityScore).toBe(100);
     });
 
-    it("each hard violation reduces score by 25", () => {
-      const noViolations = scoreSchedule(
-        makeData(),
-        makeAssignmentResult(),
-        makeValidation(0),
-      );
-      const oneViolation = scoreSchedule(
-        makeData(),
-        makeAssignmentResult(),
-        makeValidation(1),
-      );
+    it("more hard violations produce a strictly lower score", () => {
+      // Use a realistic exam set so the fraction-based penalty is meaningful
+      const exams = Array.from({ length: 10 }, (_, i) => ({
+        course_id: i + 1,
+        time_slot_id: i + 1,
+        primary_instructor_id: null,
+      }));
 
-      expect(noViolations.qualityScore - oneViolation.qualityScore).toBeCloseTo(
-        25,
-        1,
-      );
+      const none = scoreSchedule(makeData(), makeAssignmentResult(exams), makeValidation(0));
+      const few  = scoreSchedule(makeData(), makeAssignmentResult(exams), makeValidation(2));
+      const many = scoreSchedule(makeData(), makeAssignmentResult(exams), makeValidation(8));
+
+      expect(none.qualityScore).toBeGreaterThan(few.qualityScore);
+      expect(few.qualityScore).toBeGreaterThan(many.qualityScore);
+      // 8/10 violations = 80 % → penalty ≈ 72 → score well below 50
+      expect(many.qualityScore).toBeLessThan(50);
+      expect(many.qualityScore).toBeGreaterThanOrEqual(0);
     });
   });
 

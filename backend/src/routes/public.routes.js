@@ -1,5 +1,6 @@
 import express from "express";
 import pool from "../config/db.js";
+import { cacheGet, cacheSet } from "../utils/scheduleCache.js";
 
 const router = express.Router();
 
@@ -23,6 +24,18 @@ router.get("/schedule/:studentNo", async (req, res) => {
     }
 
     const student = studentResult.rows[0];
+    const studentPayload = {
+      student_no: student.student_no,
+      full_name: student.full_name,
+      class_no: student.class_no,
+      education_type: student.education_type,
+    };
+
+    const cacheKey = `student:${student.id}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, student: studentPayload, data: cached });
+    }
 
     const result = await pool.query(
       `SELECT
@@ -56,14 +69,11 @@ router.get("/schedule/:studentNo", async (req, res) => {
       [student.id],
     );
 
+    cacheSet(cacheKey, result.rows);
+
     return res.status(200).json({
       success: true,
-      student: {
-        student_no: student.student_no,
-        full_name: student.full_name,
-        class_no: student.class_no,
-        education_type: student.education_type,
-      },
+      student: studentPayload,
       data: result.rows,
     });
   } catch (error) {

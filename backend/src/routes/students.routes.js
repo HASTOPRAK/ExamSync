@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireRole } from "../middlewares/auth.middleware.js";
+import { cacheGet, cacheSet } from "../utils/scheduleCache.js";
 
 const router = express.Router();
 
@@ -24,6 +25,12 @@ router.get("/", requireRole("teacher", "admin"), async (req, res) => {
 // GET /api/students/:id/schedule — teacher/admin lookup of any student's schedule
 router.get("/:id/schedule", requireRole("teacher", "admin"), async (req, res) => {
   try {
+    const cacheKey = `teacher:${req.user.id}:student:${req.params.id}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
     const result = await pool.query(
       `SELECT
          c.course_code,
@@ -56,6 +63,7 @@ router.get("/:id/schedule", requireRole("teacher", "admin"), async (req, res) =>
        ORDER BY ts.slot_date, ts.start_time`,
       [req.params.id, req.user.id],
     );
+    cacheSet(cacheKey, result.rows);
     return res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     console.error("student schedule error:", error);
@@ -76,6 +84,12 @@ router.get("/my-schedule", requireRole("student"), async (req, res) => {
     }
 
     const studentId = studentResult.rows[0].id;
+
+    const cacheKey = `student:${studentId}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, data: cached });
+    }
 
     const result = await pool.query(
       `SELECT
@@ -109,6 +123,7 @@ router.get("/my-schedule", requireRole("student"), async (req, res) => {
       [studentId],
     );
 
+    cacheSet(cacheKey, result.rows);
     return res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     console.error("my-schedule error:", error);

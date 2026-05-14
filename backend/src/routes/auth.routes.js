@@ -1,12 +1,18 @@
 import express from "express";
-import { registerTeacher, registerStudent, login, getMe } from "../controllers/auth.controller.js";
+import {
+  registerTeacher,
+  registerStudent,
+  login,
+  getMe,
+} from "../controllers/auth.controller.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
+import { authLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/register/teacher", registerTeacher);
-router.post("/register/student", registerStudent);
-router.post("/login", login);
+router.post("/register/teacher", authLimiter, registerTeacher);
+router.post("/register/student", authLimiter, registerStudent);
+router.post("/login", authLimiter, login);
 router.get("/me", authenticate, getMe);
 
 export default router;

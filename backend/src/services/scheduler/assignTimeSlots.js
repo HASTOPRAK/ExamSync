@@ -155,6 +155,77 @@ function minGapToNeighboursOnDay(
 }
 
 /**
+ * Simulates the greedy room assignment for all courses already committed to
+ * `slotId` plus the `candidateCourseId`. Returns true only when every course
+ * (including the candidate) can be assigned rooms from the available pool.
+ *
+ * This mirrors the logic in assignRooms.js exactly, so the slot-assignment
+ * phase and the room-assignment phase stay consistent.
+ *
+ * Skip the check entirely when no rooms are loaded (tests, phase-1 preview).
+ */
+function canFitInSlot(slotId, candidateCourseId, currentAssignments, coursesById, rooms) {
+  if (!rooms?.length) return true;
+
+  // Collect course IDs already committed to this slot + candidate
+  const courseIds = [];
+  for (const [cId, assignment] of Object.entries(currentAssignments)) {
+    if (Number(assignment.time_slot_id) === Number(slotId)) {
+      courseIds.push(Number(cId));
+    }
+  }
+  courseIds.push(Number(candidateCourseId));
+
+  // Sort largest-first (mirrors assignRooms greedy order)
+  courseIds.sort((a, b) => {
+    const aS = Number(coursesById[a]?.student_count || 0);
+    const bS = Number(coursesById[b]?.student_count || 0);
+    return bS - aS;
+  });
+
+  // Active rooms sorted smallest-first (pickSingleBestRoom scans this order)
+  const activeRooms = rooms
+    .filter((r) => r.is_active === true)
+    .sort((a, b) => Number(a.capacity) - Number(b.capacity));
+
+  const usedRoomIds = new Set();
+
+  for (const courseId of courseIds) {
+    const studentCount = Number(coursesById[courseId]?.student_count || 0);
+    if (studentCount <= 0) continue; // no room needed — mirrors assignRooms
+
+    const available = activeRooms.filter((r) => !usedRoomIds.has(r.id));
+
+    // Try single room first
+    const single = available.find((r) => Number(r.capacity) >= studentCount);
+    if (single) {
+      usedRoomIds.add(single.id);
+      continue;
+    }
+
+    // Try multi-room (largest first — mirrors pickMultipleRooms)
+    const byLargest = [...available].sort(
+      (a, b) => Number(b.capacity) - Number(a.capacity),
+    );
+    let remaining = studentCount;
+    const picked = [];
+    for (const room of byLargest) {
+      picked.push(room);
+      remaining -= Number(room.capacity);
+      if (remaining <= 0) break;
+    }
+
+    if (remaining <= 0) {
+      for (const room of picked) usedRoomIds.add(room.id);
+    } else {
+      return false; // candidate makes this slot infeasible
+    }
+  }
+
+  return true;
+}
+
+/**
  * Day-first distributed assignment algorithm.
  *
  * Strategy per course (in priority order):
@@ -167,7 +238,7 @@ function minGapToNeighboursOnDay(
  *      least-bad conflict day only if no conflict-free option exists.
  */
 function assignTimeSlots(data, graphData) {
-  const { coursesById, timeSlots, examsByCourseId, instructorsByCourse } = data;
+  const { coursesById, timeSlots, examsByCourseId, instructorsByCourse, rooms } = data;
   const { conflictGraph, courseOrder } = graphData;
 
   // ── build slot lookups ────────────────────────────────────────────────────
@@ -259,6 +330,9 @@ function assignTimeSlots(data, graphData) {
       const slots = slotsByDay[day];
 
       for (const slot of slots) {
+        // Reject slot if adding this course would make room assignment infeasible.
+        if (!canFitInSlot(slot.id, courseId, currentAssignments, coursesById, rooms)) continue;
+
         const validity = hasConflictInSlot({
           courseId,
           slot,

@@ -485,6 +485,42 @@ async function generateCEMockDataset({ ownerId } = {}) {
   try {
     await client.query("BEGIN");
 
+    // 0. Clear all owner-scoped data (same wipe that the scheduler demo presets do)
+    await client.query(
+      `DELETE FROM exam_room_assignments
+       WHERE exam_id IN (
+         SELECT e.id FROM exams e
+         JOIN exam_periods ep ON ep.id = e.exam_period_id
+         WHERE ep.owner_id = $1
+       )`,
+      [ownerId],
+    );
+    await client.query(
+      `DELETE FROM exams
+       WHERE exam_period_id IN (SELECT id FROM exam_periods WHERE owner_id = $1)`,
+      [ownerId],
+    );
+    await client.query(
+      `DELETE FROM time_slots
+       WHERE exam_period_id IN (SELECT id FROM exam_periods WHERE owner_id = $1)`,
+      [ownerId],
+    );
+    await client.query(`DELETE FROM exam_periods WHERE owner_id = $1`, [ownerId]);
+    await client.query(
+      `DELETE FROM enrollments
+       WHERE course_id IN (SELECT id FROM courses WHERE owner_id = $1)`,
+      [ownerId],
+    );
+    await client.query(
+      `DELETE FROM course_instructors
+       WHERE course_id IN (SELECT id FROM courses WHERE owner_id = $1)`,
+      [ownerId],
+    );
+    await client.query(`DELETE FROM courses     WHERE owner_id = $1`, [ownerId]);
+    await client.query(`DELETE FROM rooms       WHERE owner_id = $1`, [ownerId]);
+    await client.query(`DELETE FROM instructors WHERE owner_id = $1`, [ownerId]);
+    await client.query(`DELETE FROM students    WHERE owner_id = $1`, [ownerId]);
+
     // 1. Ensure department exists (shared table, no owner_id)
     const deptResult = await client.query(
       `INSERT INTO departments (name, code)

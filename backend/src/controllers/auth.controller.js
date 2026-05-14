@@ -202,7 +202,14 @@ async function login(req, res) {
     const normalizedEmail = String(email).trim().toLowerCase();
 
     const userResult = await pool.query(
-      "SELECT id, email, password_hash, role, is_active FROM users WHERE email = $1",
+      `SELECT u.id, u.email, u.password_hash, u.role, u.is_active,
+              s.id AS s_id, s.student_no, s.full_name AS s_full_name,
+              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id,
+              i.id AS i_id, i.full_name AS i_full_name, i.department_id AS i_dept_id
+       FROM users u
+       LEFT JOIN students s ON s.user_id = u.id
+       LEFT JOIN instructors i ON i.user_id = u.id
+       WHERE u.email = $1`,
       [normalizedEmail],
     );
 
@@ -210,7 +217,8 @@ async function login(req, res) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    const user = userResult.rows[0];
+    const row = userResult.rows[0];
+    const user = { id: row.id, email: row.email, password_hash: row.password_hash, role: row.role, is_active: row.is_active };
 
     if (!user.is_active) {
       return res.status(403).json({ success: false, message: "Account is deactivated" });
@@ -226,19 +234,10 @@ async function login(req, res) {
     const token = signToken(user);
 
     let profile = null;
-    if (user.role === "student") {
-      const s = await pool.query(
-        `SELECT id, student_no, full_name, class_no, education_type, semester_no, department_id
-         FROM students WHERE user_id = $1`,
-        [user.id],
-      );
-      profile = s.rows[0] ?? null;
-    } else {
-      const i = await pool.query(
-        "SELECT id, full_name, department_id FROM instructors WHERE user_id = $1",
-        [user.id],
-      );
-      profile = i.rows[0] ?? null;
+    if (user.role === "student" && row.s_id) {
+      profile = { id: row.s_id, student_no: row.student_no, full_name: row.s_full_name, class_no: row.class_no, education_type: row.education_type, semester_no: row.semester_no, department_id: row.s_dept_id };
+    } else if (row.i_id) {
+      profile = { id: row.i_id, full_name: row.i_full_name, department_id: row.i_dept_id };
     }
 
     return res.status(200).json({
@@ -258,7 +257,14 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const userResult = await pool.query(
-      "SELECT id, email, role, is_active, created_at, last_login_at FROM users WHERE id = $1",
+      `SELECT u.id, u.email, u.role, u.is_active, u.created_at, u.last_login_at,
+              s.id AS s_id, s.student_no, s.full_name AS s_full_name,
+              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id,
+              i.id AS i_id, i.full_name AS i_full_name, i.department_id AS i_dept_id
+       FROM users u
+       LEFT JOIN students s ON s.user_id = u.id
+       LEFT JOIN instructors i ON i.user_id = u.id
+       WHERE u.id = $1`,
       [req.user.id],
     );
 
@@ -266,27 +272,18 @@ async function getMe(req, res) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const user = userResult.rows[0];
+    const row = userResult.rows[0];
 
     let profile = null;
-    if (user.role === "student") {
-      const s = await pool.query(
-        `SELECT id, student_no, full_name, class_no, education_type, semester_no, department_id
-         FROM students WHERE user_id = $1`,
-        [user.id],
-      );
-      profile = s.rows[0] ?? null;
-    } else {
-      const i = await pool.query(
-        "SELECT id, full_name, department_id FROM instructors WHERE user_id = $1",
-        [user.id],
-      );
-      profile = i.rows[0] ?? null;
+    if (row.role === "student" && row.s_id) {
+      profile = { id: row.s_id, student_no: row.student_no, full_name: row.s_full_name, class_no: row.class_no, education_type: row.education_type, semester_no: row.semester_no, department_id: row.s_dept_id };
+    } else if (row.i_id) {
+      profile = { id: row.i_id, full_name: row.i_full_name, department_id: row.i_dept_id };
     }
 
     return res.status(200).json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role, created_at: user.created_at, last_login_at: user.last_login_at },
+      user: { id: row.id, email: row.email, role: row.role, created_at: row.created_at, last_login_at: row.last_login_at },
       profile,
     });
   } catch (error) {

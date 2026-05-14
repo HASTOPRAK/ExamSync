@@ -122,21 +122,25 @@ function validateDurationFit(data, instructorAssignmentResult) {
 
 function validateRoomCapacity(data, instructorAssignmentResult) {
   const issues = [];
-  const roomAssignmentsByExamId = {};
+
+  // Key by course_id — exam_id is null for fresh schedules, which would
+  // cause all room assignments to collapse under a single null key.
+  const roomAssignmentsByCourseId = {};
 
   for (const roomAssignment of instructorAssignmentResult.roomAssignments ||
     []) {
-    if (!roomAssignmentsByExamId[roomAssignment.exam_id]) {
-      roomAssignmentsByExamId[roomAssignment.exam_id] = [];
+    const key = Number(roomAssignment.course_id);
+    if (!roomAssignmentsByCourseId[key]) {
+      roomAssignmentsByCourseId[key] = [];
     }
-    roomAssignmentsByExamId[roomAssignment.exam_id].push(roomAssignment);
+    roomAssignmentsByCourseId[key].push(roomAssignment);
   }
 
   for (const assignment of instructorAssignmentResult.assignments || []) {
-    if (!assignment.exam_id || !assignment.time_slot_id) continue;
+    if (!assignment.course_id || !assignment.time_slot_id) continue;
 
     const course = data.coursesById[assignment.course_id];
-    const roomAssignments = roomAssignmentsByExamId[assignment.exam_id] || [];
+    const roomAssignments = roomAssignmentsByCourseId[Number(assignment.course_id)] || [];
     const totalAssignedCapacity = roomAssignments.reduce(
       (sum, item) => sum + Number(item.assigned_capacity || 0),
       0,

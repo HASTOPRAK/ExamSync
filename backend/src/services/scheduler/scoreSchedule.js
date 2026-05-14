@@ -2,6 +2,18 @@ function buildTimeSlotsById(timeSlots) {
   return Object.fromEntries(timeSlots.map((slot) => [slot.id, slot]));
 }
 
+/**
+ * Normalizes a slot_date value to a plain YYYY-MM-DD string.
+ * node-postgres returns DATE columns as JS Date objects, which produce
+ * ugly strings (e.g. "Fri Nov 14 2025 00:00:00 GMT+0300") when coerced.
+ */
+function toDateKey(slotDate) {
+  if (!slotDate) return null;
+  if (typeof slotDate === "string") return slotDate.slice(0, 10);
+  if (slotDate instanceof Date) return slotDate.toISOString().slice(0, 10);
+  return String(slotDate).slice(0, 10);
+}
+
 function calculateAverageRoomUtilization(data, roomAssignments) {
   if (!roomAssignments.length) return 0;
 
@@ -25,7 +37,7 @@ function calculateMostCrowdedDay(assignments, timeSlotsById) {
     const slot = timeSlotsById[assignment.time_slot_id];
     if (!slot) continue;
 
-    const day = slot.slot_date;
+    const day = toDateKey(slot.slot_date);
     dayCounts[day] = (dayCounts[day] || 0) + 1;
   }
 
@@ -92,7 +104,7 @@ function calculateCloseSameDayStudentConflicts(
       const prev = studentSlots[i - 1];
       const curr = studentSlots[i];
 
-      if (prev.slot_date !== curr.slot_date) continue;
+      if (toDateKey(prev.slot_date) !== toDateKey(curr.slot_date)) continue;
 
       const diff = Math.abs(
         timeToMinutes(curr.start_time) - timeToMinutes(prev.start_time),
@@ -128,7 +140,7 @@ function calculateSameDayStudentConflicts(data, assignments, timeSlotsById) {
       const slot = timeSlotsById[slotId];
       if (!slot) continue;
 
-      const dayKey = String(slot.slot_date);
+      const dayKey = toDateKey(slot.slot_date);
 
       if (!examsByDay[dayKey]) {
         examsByDay[dayKey] = 0;
@@ -170,7 +182,7 @@ function calculateMaxExamsPerStudentPerDay(data, assignments, timeSlotsById) {
       const slot = timeSlotsById[slotId];
       if (!slot) continue;
 
-      const dayKey = String(slot.slot_date);
+      const dayKey = toDateKey(slot.slot_date);
       examsByDay[dayKey] = (examsByDay[dayKey] || 0) + 1;
     }
 
@@ -225,8 +237,11 @@ function calculateQualityScore(validationResult, metrics) {
 
   let score = 100;
 
-  // Hard constraints should hurt a lot
-  score -= hardViolations * 25;
+  // Hard constraints — proportional fraction-based penalty (max -90).
+  // Using a fraction prevents a handful of violations from instantly
+  // collapsing the score to zero regardless of schedule size.
+  const hardFraction = hardViolations / totalExams;
+  score -= Math.min(hardFraction * 90, 90);
 
   // Student-centric penalties
   score -= (sameDayStudentConflicts / totalExams) * 4.0;
@@ -238,8 +253,12 @@ function calculateQualityScore(validationResult, metrics) {
   // Penalize overly crowded peak day
   score -= Math.max(0, mostCrowdedDayExamCount - 6) * 2.5;
 
-  // Mild utilization penalty
-  score -= Math.max(0, 0.7 - averageRoomUtilization) * 15;
+  // Room utilization — smooth penalty: (1 - utilization) * 10, max -10.
+  // 90% utilization → -1 pt, 70% → -3 pts, 50% → -5 pts.
+  // Guard keeps phase-1 previews (no rooms yet) from being penalized.
+  if (averageRoomUtilization > 0) {
+    score -= (1 - averageRoomUtilization) * 10;
+  }
 
   return Number(Math.max(0, Math.min(100, score)).toFixed(2));
 }

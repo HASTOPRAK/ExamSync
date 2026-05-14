@@ -40,23 +40,124 @@ async function generateSchedulePhaseOne(examPeriodId, ownerId) {
 }
 
 async function runFullScheduleGeneration(examPeriodId, ownerId) {
+  // ── 1. Load data ────────────────────────────────────────────────────────────
   const data = await loadSchedulingData(examPeriodId, ownerId);
+
+  console.log("\n═══════════════════════════════════════════");
+  console.log(`SCHEDULER  exam_period=${examPeriodId}  owner=${ownerId}`);
+  console.log("═══════════════════════════════════════════");
+  console.log("[1] DATA LOADED");
+  console.log(`    courses:     ${data.courses.length}`);
+  console.log(`    rooms:       ${data.rooms.length}  (active only)`);
+  console.log(`    time slots:  ${data.timeSlots.length}  (active only)`);
+  console.log(`    exams:       ${data.exams.length}`);
+  console.log(`    enrollments: ${data.enrollments.length}`);
+
+  const zeroCourses = data.courses.filter(
+    (c) => (data.coursesById[c.id]?.student_count ?? 0) === 0,
+  );
+  if (zeroCourses.length) {
+    console.log(`    ⚠ courses with 0 enrolled students: ${zeroCourses.length}`);
+    zeroCourses.slice(0, 5).forEach((c) =>
+      console.log(`      - ${c.course_code}  ${c.course_name}`),
+    );
+  }
+
+  // ── 2. Conflict graph ───────────────────────────────────────────────────────
   const graphData = buildConflictGraph(data);
+
+  console.log("[2] CONFLICT GRAPH");
+  console.log(`    total courses:           ${graphData.summary.totalCourses}`);
+  console.log(`    courses with conflicts:  ${graphData.summary.coursesWithConflicts}`);
+  console.log(`    courses without:         ${graphData.summary.coursesWithoutConflicts}`);
+  console.log(`    conflict pairs:          ${graphData.summary.totalConflictPairs}`);
+  console.log(`    max shared students:     ${graphData.summary.maxConflictWeight}`);
+
+  // ── 3. Slot assignment ──────────────────────────────────────────────────────
   const slotAssignmentResult = assignTimeSlots(data, graphData);
+
+  console.log("[3] SLOT ASSIGNMENT");
+  console.log(`    scheduled:   ${slotAssignmentResult.summary.scheduledCount}`);
+  console.log(`    unscheduled: ${slotAssignmentResult.summary.unscheduledCount}`);
+  console.log(`    slots used:  ${slotAssignmentResult.summary.usedSlotCount}`);
+  if (slotAssignmentResult.unscheduled.length) {
+    console.log("    unscheduled courses:");
+    slotAssignmentResult.unscheduled.slice(0, 10).forEach((u) =>
+      console.log(`      - ${u.course_code}  reason: ${u.reason}`),
+    );
+  }
+
+  // Per-slot exam counts
+  const slotCounts = Object.entries(slotAssignmentResult.examsBySlot)
+    .map(([id, exams]) => ({ id, count: exams.length }))
+    .sort((a, b) => b.count - a.count);
+  if (slotCounts.length) {
+    console.log(`    slot load (top 5): ${slotCounts.slice(0, 5).map((s) => `slot${s.id}:${s.count}`).join("  ")}`);
+  }
+
+  // ── 4. Room assignment ──────────────────────────────────────────────────────
   const roomAssignmentResult = assignRooms(data, slotAssignmentResult);
+
+  console.log("[4] ROOM ASSIGNMENT");
+  console.log(`    exams with rooms:    ${roomAssignmentResult.summary.examsWithRooms}`);
+  console.log(`    exams without rooms: ${roomAssignmentResult.summary.examsWithoutRooms}`);
+  console.log(`    room assignments:    ${roomAssignmentResult.summary.roomAssignmentsCreated}`);
+  if (roomAssignmentResult.roomlessExams.length) {
+    const reasons = {};
+    for (const e of roomAssignmentResult.roomlessExams) {
+      reasons[e.reason] = (reasons[e.reason] || 0) + 1;
+    }
+    console.log("    roomless reasons:", reasons);
+    roomAssignmentResult.roomlessExams.slice(0, 5).forEach((e) =>
+      console.log(`      - ${e.course_code}  reason: ${e.reason}`),
+    );
+  }
+
+  // ── 5. Instructor assignment ────────────────────────────────────────────────
   const instructorAssignmentResult = assignInstructors(
     data,
     slotAssignmentResult,
     roomAssignmentResult,
   );
 
+  console.log("[5] INSTRUCTOR ASSIGNMENT");
+  console.log(`    summary: ${JSON.stringify(instructorAssignmentResult.summary)}`);
+
+  // ── 6. Validation ───────────────────────────────────────────────────────────
   const validationResult = validateSchedule(data, instructorAssignmentResult);
+
+  console.log("[6] VALIDATION");
+  console.log(`    hard violations: ${validationResult.summary.hardConstraintViolations}`);
+  console.log(`    warnings:        ${validationResult.summary.warnings}`);
+  if (validationResult.issues.length) {
+    const byType = {};
+    for (const issue of validationResult.issues) {
+      byType[issue.type] = (byType[issue.type] || 0) + 1;
+    }
+    console.log("    issues by type:", byType);
+  }
+
+  // ── 7. Scoring ──────────────────────────────────────────────────────────────
   const scoringResult = scoreSchedule(
     data,
     instructorAssignmentResult,
     validationResult,
   );
 
+  console.log("[7] SCORING");
+  console.log(`    quality score: ${scoringResult.qualityScore}`);
+  console.log(`    metrics:`, {
+    totalExams:                  scoringResult.metrics.totalExams,
+    scheduledExams:              scoringResult.metrics.scheduledExams,
+    averageRoomUtilization:      scoringResult.metrics.averageRoomUtilization,
+    sameDayStudentConflicts:     scoringResult.metrics.sameDayStudentConflicts,
+    closeSameDayConflicts:       scoringResult.metrics.closeSameDayStudentConflicts,
+    maxExamsPerStudentPerDay:    scoringResult.metrics.maxExamsPerStudentPerDay,
+    mostCrowdedDay:              scoringResult.metrics.mostCrowdedDay,
+  });
+  console.log("═══════════════════════════════════════════\n");
+
+  // ── 8. Save ─────────────────────────────────────────────────────────────────
   await saveSchedule(
     examPeriodId,
     slotAssignmentResult,
@@ -70,9 +171,11 @@ async function runFullScheduleGeneration(examPeriodId, ownerId) {
     graphSummary: graphData.summary,
     slotAssignment: {
       summary: slotAssignmentResult.summary,
+      unscheduled: slotAssignmentResult.unscheduled,
     },
     roomAssignment: {
       summary: roomAssignmentResult.summary,
+      roomlessExams: roomAssignmentResult.roomlessExams,
     },
     instructorAssignment: {
       summary: instructorAssignmentResult.summary,

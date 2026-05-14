@@ -188,18 +188,21 @@ function assignRooms(data, slotAssignmentResult) {
     }
   }
 
-  const roomAssignmentsByExamId = {};
+  // Key by course_id — exam_id is null for fresh schedules (no pre-existing
+  // exam rows), so using exam_id here would collapse all entries under one key.
+  const roomAssignmentsByCourseId = {};
 
   for (const item of roomAssignments) {
-    if (!roomAssignmentsByExamId[item.exam_id]) {
-      roomAssignmentsByExamId[item.exam_id] = [];
+    const key = Number(item.course_id);
+    if (!roomAssignmentsByCourseId[key]) {
+      roomAssignmentsByCourseId[key] = [];
     }
 
-    roomAssignmentsByExamId[item.exam_id].push(item);
+    roomAssignmentsByCourseId[key].push(item);
   }
 
   const updatedAssignments = slotAssignments.map((assignment) => {
-    const assignedRooms = roomAssignmentsByExamId[assignment.exam_id] || [];
+    const assignedRooms = roomAssignmentsByCourseId[Number(assignment.course_id)] || [];
     const hasRooms = assignedRooms.length > 0;
 
     return {
@@ -219,7 +222,7 @@ function assignRooms(data, slotAssignmentResult) {
     summary: {
       totalScheduledExams: slotAssignments.filter((item) => item.time_slot_id)
         .length,
-      examsWithRooms: Object.keys(roomAssignmentsByExamId).length,
+      examsWithRooms: Object.keys(roomAssignmentsByCourseId).length,
       examsWithoutRooms: roomlessExams.length,
       roomAssignmentsCreated: roomAssignments.length,
     },

@@ -59,3 +59,8 @@ export async function getExamsByExamPeriod(examPeriodId) {
   const { data } = await api.get(`/exams/exam-period/${examPeriodId}`);
   return data;
 }
+
+export async function seedSchedulerDemo(preset) {
+  const { data } = await api.post("/schedules/demo/seed", { preset });
+  return data;
+}
