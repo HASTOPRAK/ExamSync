@@ -1,4 +1,5 @@
 import db from "../../config/db.js";
+import { invalidateScheduleCache } from "../../utils/scheduleCache.js";
 
 async function saveSchedule(
   examPeriodId,
@@ -25,20 +26,13 @@ async function saveSchedule(
       ),
     ];
 
-    for (const courseId of scheduledCourseIds) {
+    if (scheduledCourseIds.length > 0) {
       await client.query(
-        `
-        INSERT INTO exams (
-          exam_period_id,
-          course_id,
-          time_slot_id,
-          primary_instructor_id,
-          status
-        )
-        VALUES ($1, $2, NULL, NULL, 'draft')
-        ON CONFLICT (exam_period_id, course_id) DO NOTHING
-        `,
-        [examPeriodId, courseId],
+        `INSERT INTO exams (exam_period_id, course_id, time_slot_id, primary_instructor_id, status)
+         SELECT $1, course_id, NULL, NULL, 'draft'
+         FROM UNNEST($2::int[]) AS t(course_id)
+         ON CONFLICT (exam_period_id, course_id) DO NOTHING`,
+        [examPeriodId, scheduledCourseIds],
       );
     }
 
@@ -56,29 +50,36 @@ async function saveSchedule(
       examIdByCourseId[Number(row.course_id)] = Number(row.id);
     }
 
+    const examIds = [];
+    const timeSlotIds = [];
+    const instructorIds = [];
+    const statuses = [];
+
     for (const assignment of finalAssignments) {
       const examId = examIdByCourseId[Number(assignment.course_id)];
-
       if (!examId) {
         throw new Error(
           `Missing exam row for course_id=${assignment.course_id} in exam_period_id=${examPeriodId}`,
         );
       }
+      examIds.push(examId);
+      timeSlotIds.push(assignment.time_slot_id ?? null);
+      instructorIds.push(assignment.primary_instructor_id ?? null);
+      statuses.push(assignment.status);
+    }
+
+    if (examIds.length > 0) {
       await client.query(
-        `
-        UPDATE exams
-        SET
-          time_slot_id = $1,
-          primary_instructor_id = $2,
-          status = $3
-        WHERE id = $4
-        `,
-        [
-          assignment.time_slot_id,
-          assignment.primary_instructor_id,
-          assignment.status,
-          examId,
-        ],
+        `UPDATE exams
+         SET time_slot_id = v.time_slot_id,
+             primary_instructor_id = v.primary_instructor_id,
+             status = v.status
+         FROM (
+           SELECT * FROM UNNEST($1::int[], $2::int[], $3::int[], $4::text[])
+             AS t(exam_id, time_slot_id, primary_instructor_id, status)
+         ) v
+         WHERE exams.id = v.exam_id`,
+        [examIds, timeSlotIds, instructorIds, statuses],
       );
     }
 
@@ -99,32 +100,31 @@ async function saveSchedule(
       roomAssignmentResult?.roomAssignments ||
       [];
 
-    for (const roomAssignment of finalRoomAssignments) {
-      const examId =
-        roomAssignment.exam_id ||
-        examIdByCourseId[Number(roomAssignment.course_id)];
+    if (finalRoomAssignments.length > 0) {
+      const raExamIds = [];
+      const raRoomIds = [];
+      const raCapacities = [];
+      const raSupervisors = [];
 
-      if (!examId) {
-        throw new Error(
-          `Cannot create room assignment without exam_id for course_id=${roomAssignment.course_id}`,
-        );
+      for (const ra of finalRoomAssignments) {
+        const examId = ra.exam_id || examIdByCourseId[Number(ra.course_id)];
+        if (!examId) {
+          throw new Error(
+            `Cannot create room assignment without exam_id for course_id=${ra.course_id}`,
+          );
+        }
+        raExamIds.push(examId);
+        raRoomIds.push(ra.room_id);
+        raCapacities.push(ra.assigned_capacity);
+        raSupervisors.push(ra.supervisor_instructor_id ?? null);
       }
+
       await client.query(
-        `
-        INSERT INTO exam_room_assignments (
-          exam_id,
-          room_id,
-          assigned_capacity,
-          supervisor_instructor_id
-        )
-        VALUES ($1, $2, $3, $4)
-        `,
-        [
-          examId,
-          roomAssignment.room_id,
-          roomAssignment.assigned_capacity,
-          roomAssignment.supervisor_instructor_id,
-        ],
+        `INSERT INTO exam_room_assignments (exam_id, room_id, assigned_capacity, supervisor_instructor_id)
+         SELECT exam_id, room_id, assigned_capacity, supervisor_instructor_id
+         FROM UNNEST($1::int[], $2::int[], $3::int[], $4::int[])
+           AS t(exam_id, room_id, assigned_capacity, supervisor_instructor_id)`,
+        [raExamIds, raRoomIds, raCapacities, raSupervisors],
       );
     }
     if (scoringResult) {
@@ -146,6 +146,7 @@ async function saveSchedule(
     }
 
     await client.query("COMMIT");
+    invalidateScheduleCache();
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

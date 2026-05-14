@@ -142,26 +142,29 @@ async function commitCourseImport(fileBuffer, ownerId) {
   try {
     await client.query("BEGIN");
 
+    const validRows = rows.filter((row) => {
+      const duration = parseDuration(row.exam_duration_minutes);
+      return row.course_code && row.course_name && duration !== null && duration >= 15 && duration <= 90;
+    });
+
     let inserted = 0;
 
-    for (const row of rows) {
-      const courseCode = row.course_code;
-      const courseName = row.course_name;
-      const duration = parseDuration(row.exam_duration_minutes);
-
-      if (!courseCode || !courseName || duration === null) continue;
-      if (duration < 15 || duration > 90) continue;
+    if (validRows.length > 0) {
+      const courseCodes = validRows.map((r) => r.course_code);
+      const courseNames = validRows.map((r) => r.course_name);
+      const durations = validRows.map((r) => parseDuration(r.exam_duration_minutes));
+      const ownerIds = validRows.map(() => ownerId);
 
       const result = await client.query(
-        `INSERT INTO courses (
-           course_code, course_name, department_id, exam_duration_minutes, owner_id
-         )
-         VALUES ($1, $2, 1, $3, $4)
+        `INSERT INTO courses (course_code, course_name, department_id, exam_duration_minutes, owner_id)
+         SELECT course_code, course_name, 1, exam_duration_minutes, owner_id
+         FROM UNNEST($1::text[], $2::text[], $3::int[], $4::int[])
+           AS t(course_code, course_name, exam_duration_minutes, owner_id)
          ON CONFLICT (owner_id, course_code) DO NOTHING`,
-        [courseCode, courseName, duration, ownerId],
+        [courseCodes, courseNames, durations, ownerIds],
       );
 
-      inserted += result.rowCount;
+      inserted = result.rowCount;
     }
 
     await client.query("COMMIT");

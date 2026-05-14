@@ -3,6 +3,8 @@ import {
   runFullScheduleGeneration,
   getScheduleReport,
 } from "../services/scheduler/index.js";
+import seedDemoData from "../services/scheduler/demo/seedDemoData.js";
+import { PRESETS, PRESET_NAMES } from "../services/scheduler/demo/presets.js";
 import db from "../config/db.js";
 
 async function generateSchedule(req, res) {
@@ -110,10 +112,52 @@ async function resetSchedule(req, res) {
   }
 }
 
-export { generateSchedule, getReport, resetSchedule };
+async function listDemoPresets(req, res) {
+  const presets = PRESET_NAMES.map((name) => ({
+    name,
+    label: PRESETS[name].meta.label,
+    description: PRESETS[name].meta.description,
+    expectedScore: PRESETS[name].meta.expectedScore,
+    courses: PRESETS[name].courses.length,
+    rooms: PRESETS[name].rooms.length,
+  }));
+
+  return res.status(200).json({ success: true, data: presets });
+}
+
+async function seedDemo(req, res) {
+  try {
+    const { preset } = req.body;
+    const ownerId = req.user.id;
+
+    if (!preset) {
+      return res.status(400).json({ success: false, message: "preset is required" });
+    }
+
+    const result = await seedDemoData(ownerId, preset);
+
+    return res.status(200).json({
+      success: true,
+      message:
+        `${result.label} demo data loaded. ` +
+        `All previous catalogue data has been replaced.`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("seedDemo error:", error);
+    return res.status(error.message.includes("Unknown preset") ? 400 : 500).json({
+      success: false,
+      message: error.message || "Failed to seed demo data",
+    });
+  }
+}
+
+export { generateSchedule, getReport, resetSchedule, listDemoPresets, seedDemo };
 
 export default {
   generateSchedule,
   getReport,
   resetSchedule,
+  listDemoPresets,
+  seedDemo,
 };

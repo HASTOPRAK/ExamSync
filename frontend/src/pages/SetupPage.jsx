@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 import { getApiErrorMessage } from "@/api/axios";
 import { getRooms, getInstructors } from "@/api/dataApi";
+import { seedSchedulerDemo } from "@/api/schedulingApi";
 import {
   getAcademicTerms,
   createAcademicTerm,
@@ -141,13 +142,61 @@ function fmtDate(str) {
   return d.toLocaleDateString("en-GB", { timeZone: "Europe/Istanbul", day: "numeric", month: "short" });
 }
 
+// ── Quick Start — demo preset metadata ───────────────────────────────────────
+
+const DEMO_PRESETS = [
+  {
+    name: "easy",
+    label: "Easy",
+    score: "95–100",
+    courses: 15,
+    rooms: 8,
+    students: 500,
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-600 dark:text-emerald-400",
+    borderClass: "border-emerald-500/40",
+    bgClass: "bg-emerald-500/8",
+    selectedBg: "bg-emerald-500/15",
+  },
+  {
+    name: "standard",
+    label: "Standard",
+    score: "85–94",
+    courses: 24,
+    rooms: 10,
+    students: 630,
+    dotClass: "bg-amber-500",
+    textClass: "text-amber-600 dark:text-amber-400",
+    borderClass: "border-amber-500/40",
+    bgClass: "bg-amber-500/8",
+    selectedBg: "bg-amber-500/15",
+  },
+  {
+    name: "stressed",
+    label: "Stressed",
+    score: "65–80",
+    courses: 35,
+    rooms: 6,
+    students: 200,
+    dotClass: "bg-rose-500",
+    textClass: "text-rose-600 dark:text-rose-400",
+    borderClass: "border-rose-500/40",
+    bgClass: "bg-rose-500/8",
+    selectedBg: "bg-rose-500/15",
+  },
+];
+
 // ── Quick Start Box ───────────────────────────────────────────────────────────
 
-function QuickStartBox({ counts, isLoading, isLoadingMock, onLoadMock }) {
+function QuickStartBox({ counts, isLoading, isLoadingMock, onLoadMock, onDemoSeeded, confirm }) {
   const shouldReduce = useReducedMotion();
   const hasAnyData = !isLoading && Object.values(counts).some((c) => c > 0);
   const [open, setOpen] = useState(false);
   const initialized = useRef(false);
+
+  // Demo preset state
+  const [selectedPreset, setSelectedPreset] = useState(null);
+  const [isSeedingDemo, setIsSeedingDemo] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !initialized.current) {
@@ -156,97 +205,185 @@ function QuickStartBox({ counts, isLoading, isLoadingMock, onLoadMock }) {
     }
   }, [isLoading, hasAnyData]);
 
+  async function handleSeedDemo() {
+    if (!selectedPreset) return;
+    const preset = DEMO_PRESETS.find((p) => p.name === selectedPreset);
+
+    const ok = await confirm({
+      title: `Load "${preset.label}" demo data?`,
+      description: `This replaces ALL rooms, courses, instructors, and student data on your account with the ${preset.label} preset. This cannot be undone.`,
+      confirmLabel: "Seed & Test",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setIsSeedingDemo(true);
+    try {
+      await seedSchedulerDemo(selectedPreset);
+      toast.success(`${preset.label} demo data loaded — ready to schedule`);
+      onDemoSeeded?.();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to seed demo data"));
+    } finally {
+      setIsSeedingDemo(false);
+    }
+  }
+
+  const canSeed = selectedPreset && !isSeedingDemo;
+
   return (
-    <AnimatePresence mode="wait">
-      {!open ? (
+    <div className="relative shrink-0">
+      {/* Button always in the layout — holds its space regardless of panel state */}
       <motion.button
-        key="btn"
         type="button"
-        onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-2 rounded-xl border border-primary/40
-                   bg-linear-to-r from-primary/15 to-violet-500/15 px-4 py-2.5
-                   text-sm font-semibold text-primary shadow-sm transition-all
-                   hover:from-primary/25 hover:to-violet-500/25"
-        initial={shouldReduce ? false : { opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={shouldReduce ? {} : { opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.15 }}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center gap-2 rounded-xl border px-4 py-2.5",
+          "text-sm font-semibold text-primary shadow-sm transition-all",
+          open
+            ? "border-primary/60 bg-linear-to-r from-primary/25 to-violet-500/25"
+            : "border-primary/40 bg-linear-to-r from-primary/15 to-violet-500/15 hover:from-primary/25 hover:to-violet-500/25",
+        )}
         whileHover={shouldReduce ? {} : { scale: 1.02 }}
         whileTap={shouldReduce ? {} : { scale: 0.98 }}
       >
         <Sparkles className="h-4 w-4" />
         Quick Start
       </motion.button>
-      ) : (
-    <motion.div
-      key="panel"
-      className="w-72 shrink-0 rounded-2xl p-px shadow-xl shadow-primary/10"
-      style={{
-        background:
-          "linear-gradient(135deg, oklch(0.635 0.167 228 / 0.35), oklch(0.5 0.2 280 / 0.25))",
-      }}
-      initial={shouldReduce ? false : { opacity: 0, scale: 0.95, y: -8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={shouldReduce ? {} : { opacity: 0, scale: 0.95, y: -8 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-    >
-      <div className="rounded-[15px] bg-card/95 p-4">
-        {/* Header */}
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-primary/20 to-violet-500/20">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Quick Start
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                CE mock dataset
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+
+      {/* Panel floats above the page — does not shift layout */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-2xl p-px shadow-xl shadow-primary/10"
+            style={{
+              background:
+                "linear-gradient(135deg, oklch(0.635 0.167 228 / 0.35), oklch(0.5 0.2 280 / 0.25))",
+            }}
+            initial={shouldReduce ? false : { opacity: 0, scale: 0.95, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduce ? {} : { opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
           >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Stats grid */}
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          {[
-            { label: "Rooms", value: "10" },
-            { label: "Instructors", value: "18" },
-            { label: "Courses", value: "14" },
-            { label: "Students", value: "490" },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg bg-primary/5 px-2.5 py-1.5">
-              <p className="text-[10px] text-muted-foreground">{label}</p>
-              <p className="text-sm font-semibold text-primary">{value}</p>
+          <div className="rounded-[15px] bg-card/95 p-4">
+            {/* Header */}
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-primary/20 to-violet-500/20">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Quick Start</p>
+                  <p className="text-[10px] text-muted-foreground">mock data &amp; demo presets</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
-          ))}
-        </div>
 
-        <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-          Realistic Computer Engineering scenario across all class groups with
-          full enrollments.
-        </p>
+            {/* ── Section 1: CE mock dataset ── */}
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              {[
+                { label: "Rooms", value: "10" },
+                { label: "Instructors", value: "18" },
+                { label: "Courses", value: "14" },
+                { label: "Students", value: "490" },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg bg-primary/5 px-2.5 py-1.5">
+                  <p className="text-[10px] text-muted-foreground">{label}</p>
+                  <p className="text-sm font-semibold text-primary">{value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+              Realistic CE scenario across all class groups with full enrollments.
+            </p>
+            <Button
+              size="sm"
+              className="w-full border-0 bg-linear-to-r from-primary to-violet-500 text-white hover:opacity-90"
+              onClick={onLoadMock}
+              disabled={isLoadingMock}
+            >
+              {isLoadingMock ? "Loading dataset…" : "Load CE Mock Data"}
+            </Button>
 
-        <Button
-          size="sm"
-          className="w-full border-0 bg-linear-to-r from-primary to-violet-500 text-white hover:opacity-90"
-          onClick={onLoadMock}
-          disabled={isLoadingMock}
-        >
-          {isLoadingMock ? "Loading dataset…" : "Load Mock Data"}
-        </Button>
-      </div>
-    </motion.div>
-      )}
-    </AnimatePresence>
+            {/* ── Divider ── */}
+            <div className="my-3.5 flex items-center gap-2">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[10px] font-medium text-muted-foreground/60">SCHEDULER DEMO</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* ── Section 2: Demo presets ── */}
+            <p className="mb-2.5 text-[11px] text-muted-foreground">
+              Replace all data with a preset designed to hit a target score band.
+            </p>
+
+            {/* Preset chips */}
+            <div className="mb-3 flex gap-1.5">
+              {DEMO_PRESETS.map((p) => {
+                const isSelected = selectedPreset === p.name;
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => setSelectedPreset(isSelected ? null : p.name)}
+                    className={cn(
+                      "flex-1 rounded-lg border px-1.5 py-1.5 text-center transition-all",
+                      isSelected
+                        ? `${p.selectedBg} ${p.borderClass}`
+                        : "border-border bg-muted/30 hover:bg-muted/60",
+                    )}
+                  >
+                    <p className={cn("text-[11px] font-semibold", isSelected ? p.textClass : "text-foreground")}>
+                      {p.label}
+                    </p>
+                    <p className={cn("text-[9px]", isSelected ? p.textClass : "text-muted-foreground")}>
+                      {p.score}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected preset stats */}
+            {selectedPreset && (() => {
+              const p = DEMO_PRESETS.find((x) => x.name === selectedPreset);
+              return (
+                <div className="mb-3 grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: "Courses", value: p.courses },
+                    { label: "Rooms",   value: p.rooms },
+                    { label: "Students", value: p.students },
+                  ].map(({ label, value }) => (
+                    <div key={label} className={cn("rounded-lg px-2 py-1.5", p.bgClass)}>
+                      <p className="text-[9px] text-muted-foreground">{label}</p>
+                      <p className={cn("text-xs font-semibold", p.textClass)}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={handleSeedDemo}
+              disabled={!canSeed}
+            >
+              {isSeedingDemo ? "Seeding…" : "Seed & Test"}
+            </Button>
+          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -930,14 +1067,14 @@ export default function SetupPage() {
           </p>
         </div>
 
-        <AnimatePresence mode="wait">
-          <QuickStartBox
-            counts={counts}
-            isLoading={isLoadingCounts}
-            isLoadingMock={isLoadingMock}
-            onLoadMock={handleLoadMockData}
-          />
-        </AnimatePresence>
+        <QuickStartBox
+          counts={counts}
+          isLoading={isLoadingCounts}
+          isLoadingMock={isLoadingMock}
+          onLoadMock={handleLoadMockData}
+          onDemoSeeded={loadCounts}
+          confirm={confirm}
+        />
       </div>
 
       {/* ── Academic Calendar ── */}

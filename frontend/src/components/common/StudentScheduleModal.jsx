@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, GraduationCap, Calendar, Clock, MapPin } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 
@@ -65,6 +65,10 @@ export default function StudentScheduleModal({ onClose }) {
   const [query,           setQuery]           = useState("");
   const [classFilter,     setClassFilter]     = useState("All");
 
+  // Per-session schedule cache: studentId → rows[]
+  // Lives for the modal's lifetime; cleared automatically when modal unmounts.
+  const scheduleCache = useRef(new Map());
+
   // Close on Escape
   useEffect(() => {
     function handler(e) { if (e.key === "Escape") onClose(); }
@@ -80,12 +84,22 @@ export default function StudentScheduleModal({ onClose }) {
       .finally(() => setLoadingStudents(false));
   }, []);
 
-  // Fetch schedule when student selected
+  // Fetch schedule when student selected — served from cache on repeat clicks
   useEffect(() => {
     if (!selectedStudent) { setSchedule([]); return; }
+
+    if (scheduleCache.current.has(selectedStudent.id)) {
+      setSchedule(scheduleCache.current.get(selectedStudent.id));
+      return;
+    }
+
     setLoadingSchedule(true);
     getStudentSchedule(selectedStudent.id)
-      .then((res) => setSchedule(res?.data || []))
+      .then((res) => {
+        const rows = res?.data || [];
+        scheduleCache.current.set(selectedStudent.id, rows);
+        setSchedule(rows);
+      })
       .catch(() => setSchedule([]))
       .finally(() => setLoadingSchedule(false));
   }, [selectedStudent]);
@@ -212,25 +226,18 @@ export default function StudentScheduleModal({ onClose }) {
                 No students found.
               </motion.p>
             ) : (
-              <AnimatePresence mode="popLayout" initial={false}>
-                {filtered.map((s, i) => (
-                  <motion.button
+              <div>
+                {filtered.map((s) => (
+                  <button
                     key={s.id}
-                    layout
                     type="button"
                     onClick={() => setSelectedStudent(s)}
-                    initial={shouldReduce ? {} : { opacity: 0, x: -8 }}
-                    animate={shouldReduce ? {} : { opacity: 1, x: 0 }}
-                    exit={shouldReduce ? {} : { opacity: 0, x: -8, scale: 0.95 }}
-                    transition={shouldReduce ? {} : { ...spring, delay: i < 12 ? i * 0.02 : 0 }}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
                       selectedStudent?.id === s.id
                         ? "bg-primary/10 text-primary"
                         : "hover:bg-accent text-foreground",
                     )}
-                    whileHover={shouldReduce ? {} : { x: 2 }}
-                    whileTap={shouldReduce ? {} : { scale: 0.98 }}
                   >
                     <div className={cn(
                       "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
@@ -242,9 +249,9 @@ export default function StudentScheduleModal({ onClose }) {
                       <p className="truncate text-xs font-semibold">{s.full_name}</p>
                       <p className="text-[10px] text-muted-foreground">{s.student_no} · Yr {s.class_no}</p>
                     </div>
-                  </motion.button>
+                  </button>
                 ))}
-              </AnimatePresence>
+              </div>
             )}
           </div>
 

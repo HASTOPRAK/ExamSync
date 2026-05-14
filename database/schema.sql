@@ -322,6 +322,8 @@ CREATE INDEX IF NOT EXISTS idx_exams_time_slot_id ON public.exams (time_slot_id)
 ALTER TABLE IF EXISTS public.exams
     ADD CONSTRAINT fk_exams_primary_instructor FOREIGN KEY (primary_instructor_id)
         REFERENCES public.instructors (id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_exams_course_id             ON public.exams (course_id);
+CREATE INDEX IF NOT EXISTS idx_exams_primary_instructor_id ON public.exams (primary_instructor_id);
 
 -- exam_room_assignments → exams / rooms / instructors
 ALTER TABLE IF EXISTS public.exam_room_assignments

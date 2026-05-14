@@ -62,6 +62,7 @@ describe("validateSchedule", () => {
           roomAssignments: [
             {
               exam_id: 100,
+              course_id: 1,
               room_id: 5,
               time_slot_id: 10,
               assigned_capacity: 25,
@@ -277,7 +278,7 @@ describe("validateSchedule", () => {
             { course_id: 1, time_slot_id: 10, exam_id: 100, primary_instructor_id: null },
           ],
           roomAssignments: [
-            { exam_id: 100, room_id: 5, time_slot_id: 10, assigned_capacity: 30, supervisor_instructor_id: null },
+            { exam_id: 100, course_id: 1, room_id: 5, time_slot_id: 10, assigned_capacity: 30, supervisor_instructor_id: null },
           ],
         }),
       );
@@ -303,7 +304,7 @@ describe("validateSchedule", () => {
             { course_id: 1, time_slot_id: 10, exam_id: 100, primary_instructor_id: null },
           ],
           roomAssignments: [
-            { exam_id: 100, room_id: 5, time_slot_id: 10, assigned_capacity: 30, supervisor_instructor_id: null },
+            { exam_id: 100, course_id: 1, room_id: 5, time_slot_id: 10, assigned_capacity: 30, supervisor_instructor_id: null },
           ],
         }),
       );
