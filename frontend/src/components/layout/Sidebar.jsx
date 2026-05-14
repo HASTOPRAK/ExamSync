@@ -233,7 +233,7 @@ export default function Sidebar() {
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
 
           {/* Dashboard */}
-          <NavItem to="/" end icon={LayoutDashboard} label="Dashboard" />
+          <NavItem to="/dashboard" end icon={LayoutDashboard} label="Dashboard" />
 
           {/* Data */}
           <div>

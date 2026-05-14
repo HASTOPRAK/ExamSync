@@ -348,7 +348,7 @@ export default function ExamPeriodPage() {
       setIsDeleting(true);
       await deleteExamPeriod(id);
       toast.success("Exam period deleted");
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to delete exam period"));
       setIsDeleting(false);
