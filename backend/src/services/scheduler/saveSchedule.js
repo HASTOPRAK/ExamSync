@@ -127,23 +127,19 @@ async function saveSchedule(
         [raExamIds, raRoomIds, raCapacities, raSupervisors],
       );
     }
-    if (scoringResult) {
-      await client.query(
-        `
-    UPDATE exam_periods
-    SET
-      schedule_quality_score = $1,
-      schedule_metrics = $2::jsonb,
-      last_scheduled_at = CURRENT_TIMESTAMP
-    WHERE id = $3
-    `,
-        [
-          scoringResult.qualityScore,
-          JSON.stringify(scoringResult.metrics || {}),
-          examPeriodId,
-        ],
-      );
-    }
+    await client.query(
+      `UPDATE exam_periods
+       SET status = 'scheduled',
+           schedule_quality_score = $1,
+           schedule_metrics = $2::jsonb,
+           last_scheduled_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [
+        scoringResult?.qualityScore ?? null,
+        JSON.stringify(scoringResult?.metrics || {}),
+        examPeriodId,
+      ],
+    );
 
     await client.query("COMMIT");
     invalidateScheduleCache();

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.users
 (
     id              SERIAL PRIMARY KEY,
     email           VARCHAR(120)  NOT NULL,
+    full_name       VARCHAR(120),                  -- display name for the account owner
     password_hash   VARCHAR(255),                  -- NULL for Google OAuth-only accounts
     role            VARCHAR(20)   NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
     google_id       VARCHAR(100),                  -- Google OAuth subject ID

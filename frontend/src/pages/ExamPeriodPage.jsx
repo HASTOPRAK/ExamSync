@@ -95,7 +95,6 @@ function getStyle(courseCode) {
 // ── Status picker ─────────────────────────────────────────────────────────────
 
 const STATUSES = [
-  { value: "draft",     label: "Draft",     pill: "bg-amber-500/15 text-amber-700 dark:text-amber-400"        },
   { value: "scheduled", label: "Scheduled", pill: "bg-primary/15 text-primary"                                },
   { value: "published", label: "Published", pill: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"  },
 ];

@@ -60,7 +60,7 @@ router.get("/schedule/:studentNo", async (req, res) => {
        LEFT JOIN exam_room_assignments era ON era.exam_id = e.id
        LEFT JOIN rooms r      ON r.id = era.room_id
        WHERE en.student_id = $1
-         AND e.status != 'draft'
+         AND ep.status = 'published'
        GROUP BY c.course_code, c.course_name, c.exam_duration_minutes,
                 ep.name, ep.academic_year, ep.term, ep.exam_type,
                 ts.slot_date, ts.start_time, ts.end_time,
@@ -131,7 +131,7 @@ router.get("/instructor-schedule", async (req, res) => {
        JOIN exam_periods ep ON ep.id = e.exam_period_id
        LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
        WHERE i.id = ANY($1)
-         AND e.status != 'draft'
+         AND ep.status = 'published'
 
        UNION ALL
 
@@ -159,7 +159,7 @@ router.get("/instructor-schedule", async (req, res) => {
        JOIN exam_periods ep ON ep.id = e.exam_period_id
        LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
        WHERE i.id = ANY($1)
-         AND e.status != 'draft'
+         AND ep.status = 'published'
        GROUP BY i.id, i.full_name, c.course_code, c.course_name,
                 ep.name, ep.academic_year, ep.term, ep.exam_type,
                 ts.slot_date, ts.start_time, ts.end_time,

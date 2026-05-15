@@ -1,6 +1,9 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import pool from "../config/db.js";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const SALT_ROUNDS = 12;
 const STUDENT_NO_REGEX = /^\d{4}[1-4][12]\d{3}$/; // YYYY C E NNN
@@ -47,52 +50,13 @@ async function registerTeacher(req, res) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const client = await pool.connect();
-    let user, profile;
-    try {
-      await client.query("BEGIN");
-
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role)
-         VALUES ($1, $2, 'teacher')
-         RETURNING id, email, role, created_at`,
-        [normalizedEmail, passwordHash],
-      );
-      user = userResult.rows[0];
-
-      // Try to link an existing instructor record with the same email first
-      // (e.g. admin imported them before they registered)
-      const existing = await client.query(
-        `SELECT id FROM instructors WHERE email = $1 AND user_id IS NULL LIMIT 1`,
-        [normalizedEmail],
-      );
-
-      if (existing.rows.length > 0) {
-        const linked = await client.query(
-          `UPDATE instructors SET user_id = $1 WHERE id = $2
-           RETURNING id, full_name, department_id`,
-          [user.id, existing.rows[0].id],
-        );
-        profile = linked.rows[0] ?? null;
-      } else {
-        // Create a new instructor profile for this teacher
-        // department_id is nullable after migration 003
-        const created = await client.query(
-          `INSERT INTO instructors (full_name, email, user_id, owner_id)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id, full_name, department_id`,
-          [String(full_name).trim(), normalizedEmail, user.id, user.id],
-        );
-        profile = created.rows[0] ?? null;
-      }
-
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
+    const userResult = await pool.query(
+      `INSERT INTO users (email, full_name, password_hash, role)
+       VALUES ($1, $2, $3, 'teacher')
+       RETURNING id, email, full_name, role, created_at`,
+      [normalizedEmail, String(full_name).trim(), passwordHash],
+    );
+    const user = userResult.rows[0];
 
     const token = signToken(user);
 
@@ -100,8 +64,8 @@ async function registerTeacher(req, res) {
       success: true,
       message: "Teacher registered successfully",
       token,
-      user: { id: user.id, email: user.email, role: user.role },
-      profile,
+      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
+      profile: null,
     });
   } catch (error) {
     console.error("Teacher register error:", error);
@@ -208,13 +172,11 @@ async function login(req, res) {
     const normalizedEmail = String(email).trim().toLowerCase();
 
     const userResult = await pool.query(
-      `SELECT u.id, u.email, u.password_hash, u.role, u.is_active,
+      `SELECT u.id, u.email, u.full_name, u.password_hash, u.role, u.is_active,
               s.id AS s_id, s.student_no, s.full_name AS s_full_name,
-              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id,
-              i.id AS i_id, i.full_name AS i_full_name, i.department_id AS i_dept_id
+              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id
        FROM users u
        LEFT JOIN students s ON s.user_id = u.id
-       LEFT JOIN instructors i ON i.user_id = u.id
        WHERE u.email = $1`,
       [normalizedEmail],
     );
@@ -224,7 +186,7 @@ async function login(req, res) {
     }
 
     const row = userResult.rows[0];
-    const user = { id: row.id, email: row.email, password_hash: row.password_hash, role: row.role, is_active: row.is_active };
+    const user = { id: row.id, email: row.email, full_name: row.full_name, password_hash: row.password_hash, role: row.role, is_active: row.is_active };
 
     if (!user.is_active) {
       return res.status(403).json({ success: false, message: "Account is deactivated" });
@@ -242,14 +204,12 @@ async function login(req, res) {
     let profile = null;
     if (user.role === "student" && row.s_id) {
       profile = { id: row.s_id, student_no: row.student_no, full_name: row.s_full_name, class_no: row.class_no, education_type: row.education_type, semester_no: row.semester_no, department_id: row.s_dept_id };
-    } else if (row.i_id) {
-      profile = { id: row.i_id, full_name: row.i_full_name, department_id: row.i_dept_id };
     }
 
     return res.status(200).json({
       success: true,
       token,
-      user: { id: user.id, email: user.email, role: user.role },
+      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
       profile,
     });
   } catch (error) {
@@ -263,13 +223,11 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const userResult = await pool.query(
-      `SELECT u.id, u.email, u.role, u.is_active, u.created_at, u.last_login_at,
+      `SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at, u.last_login_at,
               s.id AS s_id, s.student_no, s.full_name AS s_full_name,
-              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id,
-              i.id AS i_id, i.full_name AS i_full_name, i.department_id AS i_dept_id
+              s.class_no, s.education_type, s.semester_no, s.department_id AS s_dept_id
        FROM users u
        LEFT JOIN students s ON s.user_id = u.id
-       LEFT JOIN instructors i ON i.user_id = u.id
        WHERE u.id = $1`,
       [req.user.id],
     );
@@ -283,13 +241,11 @@ async function getMe(req, res) {
     let profile = null;
     if (row.role === "student" && row.s_id) {
       profile = { id: row.s_id, student_no: row.student_no, full_name: row.s_full_name, class_no: row.class_no, education_type: row.education_type, semester_no: row.semester_no, department_id: row.s_dept_id };
-    } else if (row.i_id) {
-      profile = { id: row.i_id, full_name: row.i_full_name, department_id: row.i_dept_id };
     }
 
     return res.status(200).json({
       success: true,
-      user: { id: row.id, email: row.email, role: row.role, created_at: row.created_at, last_login_at: row.last_login_at },
+      user: { id: row.id, email: row.email, full_name: row.full_name, role: row.role, created_at: row.created_at, last_login_at: row.last_login_at },
       profile,
     });
   } catch (error) {
@@ -298,4 +254,111 @@ async function getMe(req, res) {
   }
 }
 
-export { registerTeacher, registerStudent, login, getMe };
+// ─── Google OAuth ─────────────────────────────────────────────────────────────
+// POST /api/auth/google
+// Body: { credential }  — the ID token returned by the Google button
+async function googleAuth(req, res) {
+  try {
+    const { credential } = req.body ?? {};
+
+    if (!credential) {
+      return res.status(400).json({ success: false, message: "credential is required" });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ success: false, message: "Google OAuth is not configured on this server" });
+    }
+
+    // Verify the ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Google account has no email" });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Find existing user by google_id or email
+    const existing = await pool.query(
+      `SELECT id, email, full_name, role, google_id, is_active FROM users
+       WHERE google_id = $1 OR email = $2
+       LIMIT 1`,
+      [googleId, normalizedEmail],
+    );
+
+    let userId, userEmail, userName, userRole;
+
+    if (existing.rows.length > 0) {
+      const u = existing.rows[0];
+
+      if (!u.is_active) {
+        return res.status(403).json({ success: false, message: "Account is deactivated" });
+      }
+
+      // Link google_id if this was an email-only account
+      if (!u.google_id) {
+        await pool.query(
+          `UPDATE users SET google_id = $1, last_login_at = NOW() WHERE id = $2`,
+          [googleId, u.id],
+        );
+      } else {
+        await pool.query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [u.id]);
+      }
+
+      userId    = u.id;
+      userEmail = u.email;
+      userName  = u.full_name;
+      userRole  = u.role;
+    } else {
+      // New user — create teacher account only
+      const newUserResult = await pool.query(
+        `INSERT INTO users (email, full_name, password_hash, role, google_id, last_login_at)
+         VALUES ($1, $2, NULL, 'teacher', $3, NOW())
+         RETURNING id, email, full_name, role`,
+        [normalizedEmail, name || null, googleId],
+      );
+      const newUser = newUserResult.rows[0];
+
+      userId    = newUser.id;
+      userEmail = newUser.email;
+      userName  = newUser.full_name;
+      userRole  = newUser.role;
+    }
+
+    // Fetch student profile if applicable
+    let profile = null;
+    if (userRole === "student") {
+      const stuResult = await pool.query(
+        `SELECT id, student_no, full_name, class_no, education_type, semester_no, department_id
+         FROM students WHERE user_id = $1 LIMIT 1`,
+        [userId],
+      );
+      if (stuResult.rows.length > 0) {
+        const s = stuResult.rows[0];
+        profile = { id: s.id, student_no: s.student_no, full_name: s.full_name, class_no: s.class_no, education_type: s.education_type, semester_no: s.semester_no, department_id: s.department_id };
+      }
+    }
+
+    const token = signToken({ id: userId, email: userEmail, role: userRole });
+
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { id: userId, email: userEmail, full_name: userName, role: userRole },
+      profile,
+    });
+  } catch (error) {
+    console.error("Google auth error:", error.message);
+    if (error.message?.includes("Token used too late") || error.message?.includes("Invalid token signature")) {
+      return res.status(401).json({ success: false, message: "Invalid or expired Google token" });
+    }
+    return res.status(500).json({ success: false, message: "Google authentication failed" });
+  }
+}
+
+export { registerTeacher, registerStudent, login, getMe, googleAuth };

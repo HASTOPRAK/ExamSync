@@ -26,3 +26,8 @@ export async function getMySchedule() {
   const { data } = await api.get("/students/my-schedule");
   return data; // { success, data: [...] }
 }
+
+export async function googleLoginUser(credential) {
+  const { data } = await api.post("/auth/google", { credential });
+  return data; // { token, user, profile }
+}
