@@ -55,7 +55,7 @@ router.get("/:id/schedule", requireRole("teacher", "admin"), async (req, res) =>
        LEFT JOIN rooms r      ON r.id = era.room_id
        WHERE en.student_id = $1
          AND ep.owner_id = $2
-         AND e.status != 'draft'
+         AND ep.status = 'published'
        GROUP BY c.course_code, c.course_name, c.exam_duration_minutes,
                 ep.name, ep.academic_year, ep.term, ep.exam_type,
                 ts.slot_date, ts.start_time, ts.end_time,
@@ -114,7 +114,7 @@ router.get("/my-schedule", requireRole("student"), async (req, res) => {
        LEFT JOIN exam_room_assignments era ON era.exam_id = e.id
        LEFT JOIN rooms r      ON r.id = era.room_id
        WHERE en.student_id = $1
-         AND e.status != 'draft'
+         AND ep.status = 'published'
        GROUP BY c.course_code, c.course_name, c.exam_duration_minutes,
                 ep.name, ep.academic_year, ep.term, ep.exam_type,
                 ts.slot_date, ts.start_time, ts.end_time,

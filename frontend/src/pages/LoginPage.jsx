@@ -3,8 +3,9 @@ import { useNavigate, useLocation, Link } from "react-router";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "motion/react";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
-import { loginUser } from "@/api/authApi";
+import { loginUser, googleLoginUser } from "@/api/authApi";
 import { getApiErrorMessage } from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,17 @@ export default function LoginPage() {
       toast.error(getApiErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleSuccess({ credential }) {
+    try {
+      const data = await googleLoginUser(credential);
+      login({ token: data.token, user: data.user, profile: data.profile });
+      toast.success("Welcome!");
+      navigate(from, { replace: true });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Google sign-in failed"));
     }
   }
 
@@ -117,7 +129,20 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-5 space-y-2 border-t border-border pt-5 text-center text-sm text-muted-foreground">
+          {/* Google */}
+          <div className="mt-5 flex flex-col items-center gap-3 border-t border-border pt-5">
+            <p className="text-xs text-muted-foreground">or continue with</p>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error("Google sign-in failed")}
+              theme="outline"
+              size="large"
+              width="100%"
+              text="signin_with"
+            />
+          </div>
+
+          <div className="mt-4 space-y-2 text-center text-sm text-muted-foreground">
             <p>
               Don't have an account?{" "}
               <Link

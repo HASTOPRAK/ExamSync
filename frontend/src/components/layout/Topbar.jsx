@@ -1113,7 +1113,7 @@ function AvatarDropdown({ user, profile, onLogout }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const displayName = profile?.full_name ?? user?.email ?? "";
+  const displayName = user?.full_name ?? profile?.full_name ?? user?.email ?? "";
   const initials = getInitials(displayName);
   const roleLabel =
     { admin: "Admin", teacher: "Teacher", student: "Student" }[user?.role] ??

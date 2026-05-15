@@ -16,6 +16,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/nunito-sans": "^5.2.7",
     "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
+    "@react-oauth/google": "^0.13.5",
     "@tailwindcss/vite": "^4.2.2",
     "axios": "^1.14.0",
     "class-variance-authority": "^0.7.1",
