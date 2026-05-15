@@ -46,7 +46,7 @@ router.get("/schedule/:studentNo", async (req, res) => {
          ep.academic_year,
          ep.term,
          ep.exam_type,
-         ts.slot_date,
+         ts.slot_date::text AS slot_date,
          ts.start_time,
          ts.end_time,
          STRING_AGG(r.room_code, ', ' ORDER BY r.room_code) AS rooms,
@@ -79,6 +79,104 @@ router.get("/schedule/:studentNo", async (req, res) => {
   } catch (error) {
     console.error("Public schedule error:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch schedule" });
+  }
+});
+
+// GET /api/public/instructor-schedule?name=...
+// Returns the exam schedule for an instructor by name — no auth required.
+// Returns both faculty (primary instructor) and supervisor duties.
+router.get("/instructor-schedule", async (req, res) => {
+  try {
+    const name = String(req.query.name || "").trim();
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: "name is required" });
+    }
+
+    const instructorResult = await pool.query(
+      `SELECT id, full_name, email, instructor_type
+       FROM instructors
+       WHERE LOWER(full_name) LIKE LOWER($1)
+       ORDER BY full_name
+       LIMIT 10`,
+      [`%${name}%`],
+    );
+
+    if (instructorResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "No instructor found with that name" });
+    }
+
+    const instructorIds = instructorResult.rows.map((r) => r.id);
+
+    const result = await pool.query(
+      `SELECT
+         i.id               AS instructor_id,
+         i.full_name        AS instructor_name,
+         'faculty'          AS role,
+         NULL               AS room_code,
+         c.course_code,
+         c.course_name,
+         ep.name            AS exam_period_name,
+         ep.academic_year,
+         ep.term,
+         ep.exam_type,
+         ts.slot_date::text AS slot_date,
+         ts.start_time,
+         ts.end_time,
+         e.status           AS exam_status,
+         e.notes
+       FROM instructors i
+       JOIN exams e         ON e.primary_instructor_id = i.id
+       JOIN courses c       ON c.id = e.course_id
+       JOIN exam_periods ep ON ep.id = e.exam_period_id
+       LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
+       WHERE i.id = ANY($1)
+         AND e.status != 'draft'
+
+       UNION ALL
+
+       SELECT
+         i.id               AS instructor_id,
+         i.full_name        AS instructor_name,
+         'supervisor'       AS role,
+         STRING_AGG(r.room_code, ', ' ORDER BY r.room_code) AS room_code,
+         c.course_code,
+         c.course_name,
+         ep.name            AS exam_period_name,
+         ep.academic_year,
+         ep.term,
+         ep.exam_type,
+         ts.slot_date::text AS slot_date,
+         ts.start_time,
+         ts.end_time,
+         e.status           AS exam_status,
+         e.notes
+       FROM instructors i
+       JOIN exam_room_assignments era ON era.supervisor_instructor_id = i.id
+       JOIN exams e         ON e.id = era.exam_id
+       JOIN rooms r         ON r.id = era.room_id
+       JOIN courses c       ON c.id = e.course_id
+       JOIN exam_periods ep ON ep.id = e.exam_period_id
+       LEFT JOIN time_slots ts ON ts.id = e.time_slot_id
+       WHERE i.id = ANY($1)
+         AND e.status != 'draft'
+       GROUP BY i.id, i.full_name, c.course_code, c.course_name,
+                ep.name, ep.academic_year, ep.term, ep.exam_type,
+                ts.slot_date, ts.start_time, ts.end_time,
+                e.status, e.notes
+
+       ORDER BY slot_date NULLS LAST, start_time NULLS LAST, course_code`,
+      [instructorIds],
+    );
+
+    return res.status(200).json({
+      success: true,
+      instructors: instructorResult.rows,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error("Public instructor schedule error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch instructor schedule" });
   }
 });
 

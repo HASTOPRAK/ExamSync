@@ -212,7 +212,7 @@ async function getScheduleReport(examPeriodId) {
       c.exam_duration_minutes,
       c.student_count_cache,
       ts.id AS time_slot_id,
-      ts.slot_date,
+      ts.slot_date::text AS slot_date,
       ts.start_time,
       ts.end_time,
       e.status,

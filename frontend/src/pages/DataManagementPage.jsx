@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/api/axios";
 import {
   assignInstructorToCourse,
+  createCourse,
   createInstructor,
   createRoom,
+  deleteCourse,
   deleteInstructor,
   deleteRoom,
   getAssignmentsByCourse,
@@ -29,6 +31,7 @@ import {
   getRooms,
   removeInstructorFromCourse,
   toggleRoomActive,
+  updateCourse,
   updateInstructor,
   updateRoom,
 } from "@/api/dataApi";
@@ -64,6 +67,13 @@ const initialInstructorForm = {
   email: "",
   department_id: 1,
   instructor_type: "faculty",
+};
+
+const initialCourseForm = {
+  course_code: "",
+  course_name: "",
+  exam_duration_minutes: "",
+  is_active: true,
 };
 
 // ── Section content shell ─────────────────────────────────────────────────────
@@ -277,19 +287,23 @@ export default function DataManagementPage() {
 
   const [roomForm, setRoomForm] = useState(initialRoomForm);
   const [instructorForm, setInstructorForm] = useState(initialInstructorForm);
+  const [courseForm, setCourseForm] = useState(initialCourseForm);
 
   const [editingRoomId, setEditingRoomId] = useState(null);
   const [editingInstructorId, setEditingInstructorId] = useState(null);
+  const [editingCourseId, setEditingCourseId] = useState(null);
   const [isClearingAll, setIsClearingAll] = useState(false);
 
   const [roomSheetOpen, setRoomSheetOpen] = useState(false);
   const [instructorSheetOpen, setInstructorSheetOpen] = useState(false);
+  const [courseSheetOpen, setCourseSheetOpen] = useState(false);
 
   const [selectedCourseId, setSelectedCourseId] = useState("");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isSavingInstructor, setIsSavingInstructor] = useState(false);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
 
   const [roomSearch, setRoomSearch] = useState("");
@@ -547,6 +561,81 @@ export default function DataManagementPage() {
     }
   }
 
+  // ── Course sheet ───────────────────────────────────────────────────────────
+
+  function handleCourseFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setCourseForm((p) => ({
+      ...p,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  function openCourseSheet(course = null) {
+    if (course) {
+      setEditingCourseId(course.id);
+      setCourseForm({
+        course_code: course.course_code || "",
+        course_name: course.course_name || "",
+        exam_duration_minutes: String(course.exam_duration_minutes || ""),
+        is_active: Boolean(course.is_active),
+      });
+    } else {
+      setEditingCourseId(null);
+      setCourseForm(initialCourseForm);
+    }
+    setCourseSheetOpen(true);
+  }
+
+  function closeCourseSheet() {
+    setCourseSheetOpen(false);
+    setEditingCourseId(null);
+    setCourseForm(initialCourseForm);
+  }
+
+  async function handleCourseSubmit(e) {
+    e.preventDefault();
+    try {
+      setIsSavingCourse(true);
+      const payload = {
+        course_code: courseForm.course_code,
+        course_name: courseForm.course_name,
+        exam_duration_minutes: Number(courseForm.exam_duration_minutes),
+        is_active: courseForm.is_active,
+      };
+      const response = editingCourseId
+        ? await updateCourse(editingCourseId, payload)
+        : await createCourse(payload);
+      toast.success(
+        response?.message || (editingCourseId ? "Course updated" : "Course created"),
+      );
+      closeCourseSheet();
+      await loadBaseData();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save course"));
+    } finally {
+      setIsSavingCourse(false);
+    }
+  }
+
+  async function handleDeleteCourse(courseId) {
+    const ok = await confirm({
+      title: "Delete this course?",
+      description: "This will also remove all enrollments for this course.",
+      destructive: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      const response = await deleteCourse(courseId);
+      toast.success(response?.message || "Course deleted");
+      if (editingCourseId === courseId) closeCourseSheet();
+      await loadBaseData();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete course"));
+    }
+  }
+
   // ── Assignments ────────────────────────────────────────────────────────────
 
   async function handleAssignInstructor(instructorId) {
@@ -781,6 +870,78 @@ export default function DataManagementPage() {
         </SheetContent>
       </Sheet>
 
+      {/* ── Course sheet ── */}
+      <Sheet
+        open={courseSheetOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCourseSheet();
+        }}
+      >
+        <SheetContent className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editingCourseId ? "Edit Course" : "Add Course"}</SheetTitle>
+          </SheetHeader>
+          <form onSubmit={handleCourseSubmit} className="grid gap-4 p-4">
+            <div className="grid gap-2">
+              <Label htmlFor="course_code">Course Code</Label>
+              <Input
+                id="course_code"
+                name="course_code"
+                placeholder="CSE101"
+                value={courseForm.course_code}
+                onChange={handleCourseFormChange}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="course_name">Course Name</Label>
+              <Input
+                id="course_name"
+                name="course_name"
+                placeholder="Introduction to Computer Science"
+                value={courseForm.course_name}
+                onChange={handleCourseFormChange}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="exam_duration_minutes">Exam Duration (minutes)</Label>
+              <Input
+                id="exam_duration_minutes"
+                name="exam_duration_minutes"
+                type="number"
+                placeholder="90"
+                min="15"
+                value={courseForm.exam_duration_minutes}
+                onChange={handleCourseFormChange}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={courseForm.is_active}
+                onChange={handleCourseFormChange}
+                className="rounded"
+              />
+              Active course
+            </label>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={isSavingCourse}>
+                {isSavingCourse
+                  ? "Saving…"
+                  : editingCourseId
+                    ? "Update Course"
+                    : "Add Course"}
+              </Button>
+              <SheetClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </SheetClose>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
       {/* ── Header ── */}
       <motion.div variants={shouldReduce ? {} : fadeUp}>
         <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
@@ -933,9 +1094,14 @@ export default function DataManagementPage() {
             {activeSection === "courses" && (
               <SectionContent
                 title="Courses"
-                description="Read-only. Import courses via Data Setup."
+                description="Course catalog with exam durations."
                 search={courseSearch}
                 onSearch={setCourseSearch}
+                action={
+                  <Button size="sm" onClick={() => openCourseSheet()}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Course
+                  </Button>
+                }
               >
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -945,18 +1111,19 @@ export default function DataManagementPage() {
                         <Th>Name</Th>
                         <Th className="hidden sm:table-cell">Duration</Th>
                         <Th>Students</Th>
+                        <Th>Actions</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                       {isLoading ? (
-                        <SkeletonRows cols={4} />
+                        <SkeletonRows cols={5} />
                       ) : filteredCourses.length === 0 ? (
                         <EmptyRow
-                          colSpan={4}
+                          colSpan={5}
                           message={
                             courseSearch
                               ? "No courses match your search."
-                              : "No courses yet. Import them via Data Setup."
+                              : "No courses yet. Add one or import via Data Setup."
                           }
                         />
                       ) : (
@@ -975,6 +1142,24 @@ export default function DataManagementPage() {
                               {course.exam_duration_minutes} min
                             </Td>
                             <Td>{course.student_count_cache ?? 0}</Td>
+                            <Td>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openCourseSheet(course)}
+                                  className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground border border-border hover:bg-accent hover:text-foreground transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCourse(course.id)}
+                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </Td>
                           </tr>
                         ))
                       )}

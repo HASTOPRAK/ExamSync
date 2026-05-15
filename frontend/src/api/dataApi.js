@@ -40,6 +40,21 @@ export async function getCourses() {
   return data;
 }
 
+export async function createCourse(payload) {
+  const { data } = await api.post("/courses", payload);
+  return data;
+}
+
+export async function updateCourse(id, payload) {
+  const { data } = await api.put(`/courses/${id}`, payload);
+  return data;
+}
+
+export async function deleteCourse(id) {
+  const { data } = await api.delete(`/courses/${id}`);
+  return data;
+}
+
 export async function getInstructors() {
   const { data } = await api.get("/instructors");
   return data;

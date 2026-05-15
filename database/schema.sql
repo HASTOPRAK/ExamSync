@@ -78,8 +78,8 @@ CREATE TABLE IF NOT EXISTS public.students
     user_id        INTEGER,                       -- links to users table
     owner_id       INTEGER,                       -- tenant owner (teacher who imported this student)
     created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT students_student_no_key UNIQUE (student_no),
-    CONSTRAINT students_email_key      UNIQUE (email)
+    CONSTRAINT students_owner_student_no_key UNIQUE (owner_id, student_no),
+    CONSTRAINT students_owner_email_key      UNIQUE (owner_id, email)
 );
 
 -- ============================================================

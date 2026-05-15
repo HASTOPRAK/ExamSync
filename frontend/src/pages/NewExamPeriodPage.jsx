@@ -357,8 +357,11 @@ export default function NewExamPeriodPage() {
     getCourses()
       .then((res) => {
         const courses = res?.data || [];
-        if (courses.length > 0)
-          setMaxCourseDuration(Math.max(...courses.map((c) => c.exam_duration_minutes ?? 0)));
+        if (courses.length > 0) {
+          const max = Math.max(...courses.map((c) => c.exam_duration_minutes ?? 0));
+          setMaxCourseDuration(max);
+          setSlotDuration((prev) => prev === "" ? String(max) : prev);
+        }
       })
       .catch(() => toast.error("Failed to load courses"));
 
