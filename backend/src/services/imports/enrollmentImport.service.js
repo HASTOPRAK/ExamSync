@@ -372,7 +372,7 @@ async function commitStudentImport(fileBuffer, ownerId) {
       const result = await client.query(
         `INSERT INTO students (student_no, full_name, class_no, department_id, owner_id)
          VALUES ($1, $2, $3, 1, $4)
-         ON CONFLICT (student_no) DO UPDATE SET class_no = EXCLUDED.class_no WHERE EXCLUDED.class_no IS NOT NULL`,
+         ON CONFLICT (owner_id, student_no) DO UPDATE SET class_no = EXCLUDED.class_no WHERE EXCLUDED.class_no IS NOT NULL`,
         [studentNo, fullName, classNo, ownerId],
       );
 

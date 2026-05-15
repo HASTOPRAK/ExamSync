@@ -40,7 +40,7 @@ router.get("/:id/schedule", requireRole("teacher", "admin"), async (req, res) =>
          ep.academic_year,
          ep.term,
          ep.exam_type,
-         ts.slot_date,
+         ts.slot_date::text AS slot_date,
          ts.start_time,
          ts.end_time,
          STRING_AGG(r.room_code, ', ' ORDER BY r.room_code) AS rooms,

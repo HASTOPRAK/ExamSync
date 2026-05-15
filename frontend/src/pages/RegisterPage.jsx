@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "motion/react";
+import { Check, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { registerTeacher } from "@/api/authApi";
 import { getApiErrorMessage } from "@/api/axios";
@@ -10,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CenterGlow, DotGridBackground, GrainOverlay } from "@/components/common/PageBackground";
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters",  test: (p) => p.length >= 8 },
+  { label: "One uppercase letter",    test: (p) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter",    test: (p) => /[a-z]/.test(p) },
+  { label: "One number",              test: (p) => /[0-9]/.test(p) },
+];
 
 export default function RegisterPage() {
   const { login } = useAuth();
@@ -22,14 +30,16 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const passwordValid = PASSWORD_RULES.every((r) => r.test(password));
+
   async function handleSubmit(e) {
     e.preventDefault();
-    if (password !== confirm) {
-      toast.error("Passwords do not match");
+    if (!passwordValid) {
+      toast.error("Password does not meet the requirements");
       return;
     }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    if (password !== confirm) {
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -139,6 +149,21 @@ export default function RegisterPage() {
                 required
                 autoComplete="new-password"
               />
+              {password.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {PASSWORD_RULES.map((rule) => {
+                    const ok = rule.test(password);
+                    return (
+                      <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${ok ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                        {ok
+                          ? <Check className="h-3 w-3 shrink-0" />
+                          : <X className="h-3 w-3 shrink-0" />}
+                        {rule.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             <div className="space-y-1.5">

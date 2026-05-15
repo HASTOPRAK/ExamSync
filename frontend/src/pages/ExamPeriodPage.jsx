@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { useConfirm } from "@/hooks/useConfirm";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "motion/react";
-import { ChevronDown, ChevronUp, Clock, MapPin, Trash2, User } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, MapPin, Shield, Trash2, User } from "lucide-react";
 
 import PageSection from "@/components/common/PageSection";
 import { Button } from "@/components/ui/button";
@@ -278,6 +278,27 @@ function ScheduleGrid({ report }) {
                             <span>{exam.rooms.map((r) => r.room_code).join(", ")}</span>
                           </div>
                         )}
+
+                        {/* Supervisors */}
+                        {(() => {
+                          const supervisors = [
+                            ...new Set(
+                              (exam.rooms ?? [])
+                                .map((r) => r.supervisor_instructor_name)
+                                .filter(Boolean),
+                            ),
+                          ];
+                          return supervisors.length > 0 ? (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Shield className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                {supervisors.length === 1
+                                  ? supervisors[0]
+                                  : `${supervisors.length} supervisors`}
+                              </span>
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     );
                   })}
@@ -556,6 +577,7 @@ export default function ExamPeriodPage() {
                     <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Course</th>
                     <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Instructor</th>
                     <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rooms</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supervisors</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -579,6 +601,15 @@ export default function ExamPeriodPage() {
                           </td>
                           <td className="px-4 py-2.5 text-muted-foreground">
                             {exam.rooms?.map((r) => r.room_code).join(", ") || "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {[
+                              ...new Set(
+                                (exam.rooms ?? [])
+                                  .map((r) => r.supervisor_instructor_name)
+                                  .filter(Boolean),
+                              ),
+                            ].join(", ") || "—"}
                           </td>
                         </tr>
                       );

@@ -624,7 +624,7 @@ async function generateCEMockDataset({ ownerId } = {}) {
       await client.query(
         `INSERT INTO students (student_no, full_name, email, department_id, class_no, education_type, owner_id)
          VALUES ${placeholders}
-         ON CONFLICT (student_no) DO NOTHING`,
+         ON CONFLICT (owner_id, student_no) DO NOTHING`,
         studentRows.flat(),
       );
     }
@@ -909,7 +909,7 @@ async function generateCEStudentsMock({ ownerId } = {}) {
       await client.query(
         `INSERT INTO students (student_no, full_name, email, department_id, class_no, education_type, owner_id)
          VALUES ${placeholders}
-         ON CONFLICT (student_no) DO NOTHING`,
+         ON CONFLICT (owner_id, student_no) DO NOTHING`,
         studentRows.flat(),
       );
     }

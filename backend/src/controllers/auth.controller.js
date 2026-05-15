@@ -6,6 +6,14 @@ const SALT_ROUNDS = 12;
 const STUDENT_NO_REGEX = /^\d{4}[1-4][12]\d{3}$/; // YYYY C E NNN
 const STUDENT_EMAIL_DOMAIN = "ogr.edu.tr";
 
+function validatePassword(password) {
+  if (!password || password.length < 8)      return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(password))               return "Password must contain at least one uppercase letter";
+  if (!/[a-z]/.test(password))               return "Password must contain at least one lowercase letter";
+  if (!/[0-9]/.test(password))               return "Password must contain at least one number";
+  return null; // valid
+}
+
 function signToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
@@ -27,9 +35,8 @@ async function registerTeacher(req, res) {
     if (!email || !String(email).trim()) {
       return res.status(400).json({ success: false, message: "email is required" });
     }
-    if (!password || password.length < 8) {
-      return res.status(400).json({ success: false, message: "password must be at least 8 characters" });
-    }
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ success: false, message: pwError });
 
     const normalizedEmail = String(email).trim().toLowerCase();
 
@@ -117,9 +124,8 @@ async function registerStudent(req, res) {
         message: "Invalid student number. Expected format: YYYYCENNN (e.g. 202631009)",
       });
     }
-    if (!password || password.length < 8) {
-      return res.status(400).json({ success: false, message: "password must be at least 8 characters" });
-    }
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ success: false, message: pwError });
 
     const normalizedNo = String(student_no).trim();
     const email = `${normalizedNo}@${STUDENT_EMAIL_DOMAIN}`;
